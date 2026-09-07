@@ -223,11 +223,15 @@ export const EscalasStore = {
     return rows.map(escalaFromDb);
   },
   async replaceSemana(ano, semana, novasLinhas) {
-    check(await supabase.from('escalas').delete().eq('ano', ano).eq('semana', semana));
-    if (novasLinhas.length > 0) {
-      check(await supabase.from('escalas').insert(novasLinhas.map(escalaToDb)));
-    }
-    return novasLinhas;
+    // Delegado a uma função Postgres (replace_semana_escala) que faz delete+insert
+    // dentro de uma única transação serializada por advisory lock, evitando duplicação
+    // de linhas quando duas gerações de escala da mesma semana rodam ao mesmo tempo.
+    const rows = check(await supabase.rpc('replace_semana_escala', {
+      p_ano: ano,
+      p_semana: semana,
+      p_linhas: novasLinhas.map(escalaToDb)
+    }));
+    return rows.map(escalaFromDb);
   },
   async removeSemana(ano, semana) {
     const rows = check(await supabase.from('escalas').delete().eq('ano', ano).eq('semana', semana).select());

@@ -41,17 +41,19 @@ function mostrarConfirmacao(mensagem, { titulo = 'Confirmar ação', confirmarTe
 
         const onKeydown = (e) => {
             if (e.key === 'Escape') resolver(false);
-            if (e.key === 'Enter') resolver(true);
+            if (e.key === 'Enter' && document.activeElement === botaoConfirmar) resolver(true);
         };
 
-        card.querySelector('[data-action="cancelar"]').addEventListener('click', () => resolver(false));
-        card.querySelector('[data-action="confirmar"]').addEventListener('click', () => resolver(true));
+        const botaoConfirmar = card.querySelector('[data-action="confirmar"]');
+        const botaoCancelar = card.querySelector('[data-action="cancelar"]');
+        botaoCancelar.addEventListener('click', () => resolver(false));
+        botaoConfirmar.addEventListener('click', () => resolver(true));
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) resolver(false);
         });
         document.addEventListener('keydown', onKeydown);
 
-        card.querySelector('[data-action="confirmar"]').focus();
+        botaoCancelar.focus();
     });
 }
 

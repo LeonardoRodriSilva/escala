@@ -60,6 +60,20 @@ function atualizarModoVisual(tabName) {
     document.body.classList.toggle('scale-view', tabName === 'escala');
 }
 
+// Valida tamanho/tipo de imagem no cliente antes de enviar (espelha os limites do multer no backend)
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024;
+const EXTENSOES_IMAGEM_PERMITIDAS = /\.(png|jpe?g|webp|gif)$/i;
+
+function validarArquivoImagem(file) {
+    if (!EXTENSOES_IMAGEM_PERMITIDAS.test(file.name)) {
+        return 'Tipo de arquivo não permitido. Envie png, jpg, jpeg, webp ou gif.';
+    }
+    if (file.size > TAMANHO_MAXIMO_IMAGEM) {
+        return `Arquivo muito grande (${(file.size / (1024 * 1024)).toFixed(1)}MB). O limite é 5MB.`;
+    }
+    return null;
+}
+
 // Desabilita um botão e mostra texto de carregamento durante requisições (evita cliques duplicados)
 function definirCarregando(botao, carregando, textoCarregando = '⏳ Enviando...') {
     if (!botao) return;
@@ -76,22 +90,18 @@ function definirCarregando(botao, carregando, textoCarregando = '⏳ Enviando...
 // ===== CARREGAMENTO DE DADOS =====
 async function carregarDados() {
     try {
-        const [integrantes, comodos, escalas, infracoes] = await Promise.all([
+        const [integrantes, comodos] = await Promise.all([
             fetch(`${API_URL}/integrantes`).then(r => r.json()),
-            fetch(`${API_URL}/comodos`).then(r => r.json()),
-            fetch(`${API_URL}/escala/atual`).then(r => r.json()),
-            fetch(`${API_URL}/infracoes-resumo/todas`).then(r => r.json())
+            fetch(`${API_URL}/comodos`).then(r => r.json())
         ]);
 
         app.integrantes = integrantes;
         app.comodos = comodos;
-        app.escalas = escalas;
-        app.infracoes = infracoes;
 
         renderizarIntegrantes();
         renderizarComodos();
+        await carregarInfracoes();
         carregarEscalaAtual();
-        carregarInfracoes();
     } catch (error) {
         console.error('Erro ao carregar dados:', error);
         mostrarNotificacao('Erro ao carregar dados', 'error');
@@ -424,6 +434,13 @@ async function uploadImagemComodo(e) {
     const file = e.target.files[0];
     if (!file) return;
 
+    const erroValidacao = validarArquivoImagem(file);
+    if (erroValidacao) {
+        mostrarNotificacao(erroValidacao, 'error');
+        e.target.value = '';
+        return;
+    }
+
     const formData = new FormData();
     formData.append('image', file);
 
@@ -561,7 +578,7 @@ function renderizarEscalaTabela(escalas) {
                 <div class="escala-dashboard-stats">
                     <span class="stat-chip">${escalas.length} pessoas</span>
                     <span class="stat-chip">${totalFolgas} folga(s)</span>
-                    <span class="stat-chip">${totalXs} X(s)</span>
+                    <span class="stat-chip" title="Total acumulado no histórico, não apenas desta semana">${totalXs} X(s) acumulados</span>
                 </div>
             </div>
             <div id="motivacao-destaque-container" class="motivacao-destaque-container">
@@ -859,6 +876,9 @@ async function deletarInfracao(id) {
         if (response.ok) {
             carregarInfracoes();
             mostrarNotificacao('Infração removida', 'success');
+        } else {
+            const erro = await response.json().catch(() => ({}));
+            mostrarNotificacao(erro.error || 'Erro ao remover infração', 'error');
         }
     } catch (error) {
         console.error('Erro:', error);
@@ -875,6 +895,12 @@ async function uploadMotivacao(e) {
 
     if (!file) {
         mostrarNotificacao('Selecione uma imagem', 'warning');
+        return;
+    }
+
+    const erroValidacao = validarArquivoImagem(file);
+    if (erroValidacao) {
+        mostrarNotificacao(erroValidacao, 'error');
         return;
     }
 
@@ -1089,9 +1115,6 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
-// Carregar dados de motivação ao iniciar
-carregarMotivacoes();
-
 // ===== CONFIGURAÇÕES (LOGO E CORES) =====
 async function carregarConfig() {
     try {
@@ -1172,7 +1195,13 @@ async function uploadLogo(e) {
         mostrarNotificacao('Selecione um arquivo', 'warning');
         return;
     }
-    
+
+    const erroValidacao = validarArquivoImagem(file);
+    if (erroValidacao) {
+        mostrarNotificacao(erroValidacao, 'error');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('logo', file);
 
@@ -1217,6 +1246,12 @@ async function uploadBackground(e) {
     const file = document.getElementById('background-upload').files[0];
     if (!file) {
         mostrarNotificacao('Selecione uma imagem', 'warning');
+        return;
+    }
+
+    const erroValidacao = validarArquivoImagem(file);
+    if (erroValidacao) {
+        mostrarNotificacao(erroValidacao, 'error');
         return;
     }
 
