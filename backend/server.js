@@ -535,6 +535,10 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
       return null;
     }
 
+    // Posição no sorteio da semana: usada como desempate final para evitar viés
+    // alfabético (empates de histórico sempre favoreciam o mesmo nome).
+    const poolIndex = new Map(uniqueOrdered.map((integrante, idx) => [integrante.id, idx]));
+
     const livres = uniqueOrdered
       .filter(integrante => assignedCounts.get(integrante.id) === 0)
       .sort((a, b) => {
@@ -542,7 +546,7 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
         if (diffHistorico !== 0) return diffHistorico;
         const diffAtual = (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0);
         if (diffAtual !== 0) return diffAtual;
-        return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
+        return poolIndex.get(a.id) - poolIndex.get(b.id);
       });
 
     if (livres.length > 0) {
@@ -556,7 +560,7 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
         if (diffHistorico !== 0) return diffHistorico;
         const diffAtual = (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0);
         if (diffAtual !== 0) return diffAtual;
-        return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
+        return poolIndex.get(a.id) - poolIndex.get(b.id);
       })[0] || null;
 
     return reutilizavel ? { integrante: reutilizavel, reused: true } : null;
