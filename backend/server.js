@@ -53,10 +53,15 @@ const upload = multer({
 });
 
 // ===== FUNÇÕES AUXILIARES =====
-const rotateList = (items, offset) => {
-  if (!items.length) return [];
-  const normalizedOffset = offset % items.length;
-  return [...items.slice(normalizedOffset), ...items.slice(0, normalizedOffset)];
+// Fisher-Yates: embaralha uma cópia do array com aleatoriedade real, usada
+// como desempate final entre candidatos igualmente elegíveis.
+const shuffle = (items) => {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 };
 
 const sortByOrderThenName = (a, b) => {
@@ -386,8 +391,6 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
   const normalRooms = mandatoryRooms.filter(comodo => !comodo.apenassuiteMembers);
   const totalRequiredSlots = mandatoryRooms.reduce((sum, room) => sum + Math.max(1, room.pessoasNecessarias || 1), 0);
   const suiteCount = integrantesAtivos.filter(integrante => integrante.isSuite).length;
-  const geracaoSeed = Date.now() ^ Math.floor(Math.random() * 1000000000);
-  const semanaSeed = (semanaAtual.ano * 53 + semanaAtual.semana) + geracaoSeed;
   const suiteSlotsNecessarios = suiteRooms.reduce((sum, room) => sum + Math.max(1, room.pessoasNecessarias || 1), 0);
 
   const historicoFolgas = new Map();
@@ -452,39 +455,21 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
   integrantesAtivos.forEach(integrante => assignedCounts.set(integrante.id, 0));
 
   const totalFolgas = Math.max(0, integrantesAtivos.length - totalRequiredSlots);
-  const folgaBaseOrder = rotateList([...integrantesAtivos], semanaSeed % integrantesAtivos.length);
-  const candidatosFolga = [...integrantesAtivos].filter(integrante => {
-    if (!integrante.isSuite) return true;
-    return suiteCount > suiteSlotsNecessarios;
-  });
+  // Moradores da suíte só podem folgar além do que o(s) cômodo(s) exclusivo(s) dela exigem:
+  // no máximo o excedente de moradores da suíte acima do necessário para preenchê-los.
+  const suiteFolgaSurplus = Math.max(0, suiteCount - suiteSlotsNecessarios);
 
-  const folgas = new Set(
-    candidatosFolga
-      .map(integrante => ({
-        integrante,
-        folgas: historicoFolgas.get(integrante.id) || 0,
-        baseIndex: folgaBaseOrder.findIndex(item => item.id === integrante.id)
-      }))
-      .sort((a, b) => {
-        const diff = a.folgas - b.folgas;
-        if (diff !== 0) return diff;
-        return a.baseIndex - b.baseIndex;
-      })
-      .slice(0, Math.min(totalFolgas, candidatosFolga.length))
-      .map(item => item.integrante.id)
-  );
-
-  if (folgas.size < totalFolgas) {
-    [...integrantesAtivos]
-      .filter(integrante => !folgas.has(integrante.id))
-      .sort((a, b) => {
-        const diff = (historicoFolgas.get(a.id) || 0) - (historicoFolgas.get(b.id) || 0);
-        if (diff !== 0) return diff;
-        return a.nome.localeCompare(b.nome, 'pt-BR');
-      })
-      .slice(0, totalFolgas - folgas.size)
-      .forEach(integrante => folgas.add(integrante.id));
-  }
+  const folgas = new Set();
+  let suiteFolgasEscolhidas = 0;
+  shuffle(integrantesAtivos)
+    .map(integrante => ({ integrante, folgas: historicoFolgas.get(integrante.id) || 0 }))
+    .sort((a, b) => a.folgas - b.folgas)
+    .forEach(({ integrante }) => {
+      if (folgas.size >= totalFolgas) return;
+      if (integrante.isSuite && suiteFolgasEscolhidas >= suiteFolgaSurplus) return;
+      folgas.add(integrante.id);
+      if (integrante.isSuite) suiteFolgasEscolhidas++;
+    });
 
   const novaEscala = [];
   const roomWarnings = [];
@@ -517,11 +502,11 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
     return historicoIntegrante.get(roomName) || 0;
   };
 
-  const chooseCandidate = (room, slotIndex, usedInRoom) => {
+  const chooseCandidate = (room, usedInRoom) => {
     const pool = getCandidatePool(room);
     if (pool.length === 0) return null;
 
-    const rotatedPool = rotateList(pool, (semanaSeed + room.ordem + slotIndex) % pool.length);
+    const rotatedPool = shuffle(pool);
     const uniqueOrdered = [];
     const seen = new Set();
 
@@ -535,7 +520,7 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
       return null;
     }
 
-    // Posição no sorteio da semana: usada como desempate final para evitar viés
+    // Posição no sorteio deste cômodo/vaga: usada como desempate final para evitar viés
     // alfabético (empates de histórico sempre favoreciam o mesmo nome).
     const poolIndex = new Map(uniqueOrdered.map((integrante, idx) => [integrante.id, idx]));
 
@@ -572,7 +557,7 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
     let roomAssigned = 0;
 
     for (let slotIndex = 0; slotIndex < requiredSlots; slotIndex++) {
-      const escolhido = chooseCandidate(room, slotIndex, usedInRoom);
+      const escolhido = chooseCandidate(room, usedInRoom);
       const candidato = escolhido?.integrante || null;
 
       if (!candidato) {
