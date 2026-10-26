@@ -57,6 +57,13 @@ function atualizarModoVisual(tabName) {
     document.body.classList.toggle('scale-view', tabName === 'escala');
 }
 
+// Escapa texto vindo do banco (nomes, descrições) antes de colocá-lo em innerHTML
+function escaparHtml(valor) {
+    return String(valor ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+}
+
 // Valida tamanho/tipo de imagem no cliente antes de enviar (espelha os limites do multer no backend)
 const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024;
 const EXTENSOES_IMAGEM_PERMITIDAS = /\.(png|jpe?g|webp|gif)$/i;
@@ -257,7 +264,7 @@ function renderizarIntegrantes() {
         item.className = 'list-item';
         item.innerHTML = `
             <div>
-                <span class="list-item-name">${integrante.nome}</span>
+                <span class="list-item-name">${escaparHtml(integrante.nome)}</span>
                 ${integrante.isSuite ? '<span class="list-item-badge">Suite</span>' : ''}
                 ${integrante.ativo === false ? '<span class="list-item-badge list-item-badge-muted">Inativo</span>' : '<span class="list-item-badge list-item-badge-muted">Ativo</span>'}
             </div>
@@ -481,7 +488,7 @@ function renderizarComodos() {
         item.className = 'list-item';
         item.innerHTML = `
             <div>
-                <span class="list-item-name">${comodo.nome}</span>
+                <span class="list-item-name">${escaparHtml(comodo.nome)}</span>
                 ${comodo.apenassuiteMembers ? '<span class="list-item-badge">Suite</span>' : ''}
                 ${comodo.obrigatorio === false ? '<span class="list-item-badge list-item-badge-muted">Opcional</span>' : ''}
                 <span class="list-item-badge list-item-badge-muted">Ordem ${comodo.ordem ?? 0}</span>
@@ -543,12 +550,12 @@ function renderizarEscalaTabela(escalas) {
         return `
             <article class="escala-card ${isFolga ? 'folga' : ''}">
                 <div class="escala-card-info">
-                    <span class="escala-card-name">${escala.integranteNome}</span>
-                    <span class="escala-card-comodo ${isFolga ? 'is-folga' : ''}">- ${rotulo}</span>
+                    <span class="escala-card-name">${escaparHtml(escala.integranteNome)}</span>
+                    <span class="escala-card-comodo ${isFolga ? 'is-folga' : ''}">- ${escaparHtml(rotulo)}</span>
                 </div>
                 <div class="escala-card-right">
                     <span class="escala-card-badge ${isFolga ? 'folga' : ''}" title="${totalInfracoes} infração(ões)">${totalInfracoes}</span>
-                    ${!isFolga ? `<button class="escala-card-x-btn" title="Marcar X" onclick="marcarInfracaoRapido('${escala.integranteId}', '${escala.integranteNome}')">❌</button>` : ''}
+                    ${!isFolga ? `<button class="escala-card-x-btn" title="Marcar X" onclick="marcarInfracaoRapido('${escala.integranteId}')">❌</button>` : ''}
                 </div>
             </article>
         `;
@@ -586,7 +593,7 @@ function renderizarCriticasEscala(criticas, tipo = 'warning') {
         return;
     }
 
-    const itens = criticas.map(critica => `<li>${critica}</li>`).join('');
+    const itens = criticas.map(critica => `<li>${escaparHtml(critica)}</li>`).join('');
     container.innerHTML = `
         <div class="criticas-box ${tipo}">
             <h3>⚠️ Críticas da geração</h3>
@@ -681,8 +688,8 @@ async function carregarHistorico() {
                 const item = document.createElement('div');
                 item.className = 'historico-item';
                 item.innerHTML = `
-                    <div class="historico-item-comodo">${Array.isArray(escala.comodos) ? escala.comodos.join(', ') : 'Sem cômodos'}</div>
-                    <div class="historico-item-integrante">${escala.integranteNome}</div>
+                    <div class="historico-item-comodo">${Array.isArray(escala.comodos) ? escaparHtml(escala.comodos.join(', ')) : 'Sem cômodos'}</div>
+                    <div class="historico-item-integrante">${escaparHtml(escala.integranteNome)}</div>
                 `;
                 itensDiv.appendChild(item);
             });
@@ -753,7 +760,8 @@ async function registrarInfracao(e) {
     }
 }
 
-async function marcarInfracaoRapido(integranteId, integranteNome) {
+async function marcarInfracaoRapido(integranteId) {
+    const integranteNome = app.integrantes.find(i => String(i.id) === String(integranteId))?.nome || '';
     const descricao = await mostrarPrompt(`Infração de ${integranteNome}:`, '', { titulo: 'Registrar infração', placeholder: 'Descreva brevemente...' });
     if (descricao === null) return;
 
@@ -815,7 +823,7 @@ async function carregarInfracoes() {
 
             let html = `
                 <div class="resumo-nome">
-                    ${dados.integranteNome}
+                    ${escaparHtml(dados.integranteNome)}
                     <span class="resumo-contador">${dados.total}</span>
                 </div>
                 <div class="infracao-lista">
@@ -825,7 +833,7 @@ async function carregarInfracoes() {
                 html += `
                     <div class="infracao-item">
                         <div>
-                            <div class="infracao-descricao">• ${inf.descricao}</div>
+                            <div class="infracao-descricao">• ${escaparHtml(inf.descricao)}</div>
                             <div class="infracao-data">${new Date(inf.dataRegistro).toLocaleDateString('pt-BR')}</div>
                         </div>
                         <button class="btn btn-danger" onclick="deletarInfracao('${inf.id}')">🗑️</button>
