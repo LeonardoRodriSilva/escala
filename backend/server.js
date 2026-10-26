@@ -349,9 +349,9 @@ app.post('/api/escala/atual/trocar', asyncHandler(async (req, res) => {
     return res.status(404).json({ error: 'Um dos integrantes não está na escala da semana atual' });
   }
 
-  const resultados = await EscalasStore.updateMany([
-    { id: linhaA.id, changes: { comodos: linhaB.comodos, folga: linhaB.folga } },
-    { id: linhaB.id, changes: { comodos: linhaA.comodos, folga: linhaA.folga } }
+  const resultados = await EscalasStore.saveMany([
+    { ...linhaA, comodos: linhaB.comodos, folga: linhaB.folga },
+    { ...linhaB, comodos: linhaA.comodos, folga: linhaA.folga }
   ]);
 
   res.json({ success: true, escala: resultados });
@@ -489,11 +489,11 @@ app.delete('/api/infracoes/:id', asyncHandler(async (req, res) => {
 }));
 
 app.get('/api/infracoes-resumo/todas', asyncHandler(async (req, res) => {
-  const infracoes = await InfracoesStore.list();
-  const integrantesAtivos = (await IntegrantesStore.list()).filter(i => i.ativo !== false);
+  const [infracoes, integrantes] = await Promise.all([InfracoesStore.list(), IntegrantesStore.list()]);
+  const integrantesPorId = new Map(integrantes.map(integrante => [String(integrante.id), integrante]));
   const resumo = {};
 
-  integrantesAtivos.forEach(integrante => {
+  integrantes.filter(i => i.ativo !== false).forEach(integrante => {
     resumo[integrante.id] = {
       integranteId: integrante.id,
       integranteNome: integrante.nome,
@@ -502,10 +502,10 @@ app.get('/api/infracoes-resumo/todas', asyncHandler(async (req, res) => {
     };
   });
 
-  for (const infracao of infracoes) {
+  infracoes.forEach(infracao => {
     const chave = String(infracao.integranteId);
     if (!resumo[chave]) {
-      const integrante = await IntegrantesStore.findById(infracao.integranteId);
+      const integrante = integrantesPorId.get(chave);
       resumo[chave] = {
         integranteId: infracao.integranteId,
         integranteNome: integrante ? integrante.nome : infracao.integranteNome,
@@ -515,7 +515,7 @@ app.get('/api/infracoes-resumo/todas', asyncHandler(async (req, res) => {
     }
     resumo[chave].total++;
     resumo[chave].infracoes.push(infracao);
-  }
+  });
 
   res.json(resumo);
 }));

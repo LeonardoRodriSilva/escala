@@ -20,6 +20,14 @@ const check = ({ data, error }) => {
   return data;
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Busca uma linha pelo id direto no banco (ids que não são UUID nem chegam a consultar)
+const findRowById = async (table, id) => {
+  if (!UUID_REGEX.test(String(id))) return null;
+  return check(await supabase.from(table).select('*').eq('id', id).maybeSingle());
+};
+
 // ===== INTEGRANTES =====
 const integranteFromDb = (row) => ({
   id: row.id,
@@ -34,7 +42,8 @@ export const IntegrantesStore = {
     return rows.map(integranteFromDb);
   },
   async findById(id) {
-    return (await this.list()).find((integrante) => sameId(integrante.id, id)) || null;
+    const row = await findRowById('integrantes', id);
+    return row ? integranteFromDb(row) : null;
   },
   async findByNome(nome, { excludeId } = {}) {
     const alvo = String(nome || '').trim().toLowerCase();
@@ -114,7 +123,8 @@ export const ComodosStore = {
     return rows.map((row, index) => normalizeComodo(comodoFromDb(row), index));
   },
   async findById(id) {
-    return (await this.list()).find((comodo) => sameId(comodo.id, id)) || null;
+    const row = await findRowById('comodos', id);
+    return row ? normalizeComodo(comodoFromDb(row)) : null;
   },
   async create(data) {
     const novo = normalizeComodo(data);
@@ -155,10 +165,12 @@ export const InfracoesStore = {
     return rows.map(infracaoFromDb);
   },
   async findById(id) {
-    return (await this.list()).find((infracao) => sameId(infracao.id, id)) || null;
+    const row = await findRowById('infracoes', id);
+    return row ? infracaoFromDb(row) : null;
   },
   async listByIntegranteId(integranteId) {
-    return (await this.list()).filter((infracao) => sameId(infracao.integranteId, integranteId));
+    const rows = check(await supabase.from('infracoes').select('*').eq('integrante_id', String(integranteId)));
+    return rows.map(infracaoFromDb);
   },
   async create({ integranteId, integranteNome, descricao, dataSemana }) {
     const row = check(await supabase.from('infracoes').insert({
@@ -216,7 +228,8 @@ export const EscalasStore = {
     return rows.map(escalaFromDb);
   },
   async findById(id) {
-    return (await this.list()).find((escala) => sameId(escala.id, id)) || null;
+    const row = await findRowById('escalas', id);
+    return row ? escalaFromDb(row) : null;
   },
   async listBySemana(ano, semana) {
     const rows = check(await supabase.from('escalas').select('*').eq('ano', ano).eq('semana', semana));
@@ -245,13 +258,10 @@ export const EscalasStore = {
     const row = check(await supabase.from('escalas').update(dbChanges).eq('id', id).select().maybeSingle());
     return row ? escalaFromDb(row) : null;
   },
-  async updateMany(updates) {
-    const resultados = [];
-    for (const { id, changes } of updates) {
-      const atualizada = await this.update(id, changes);
-      if (atualizada) resultados.push(atualizada);
-    }
-    return resultados;
+  // Grava várias linhas completas num único upsert: ou todas mudam, ou nenhuma
+  async saveMany(escalas) {
+    const rows = check(await supabase.from('escalas').upsert(escalas.map(escalaToDb)).select());
+    return rows.map(escalaFromDb);
   }
 };
 
