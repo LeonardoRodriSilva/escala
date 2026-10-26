@@ -1,18 +1,16 @@
 # 📚 Documentação do Projeto Escala
 
-Bem-vindo à documentação oficial do **Escala**, sistema de gestão e rotação de escalas de limpeza.
-
-A documentação está estruturada com base nos módulos e componentes reais da aplicação:
+Bem-vindo à documentação do **Escala**, sistema de gestão e rodízio de escalas de limpeza.
 
 ## 📁 Estrutura de Documentos
 
 | Documento | Descrição |
 | :--- | :--- |
-| 🏗️ [**Arquitetura do Sistema**](file:///c:/Users/leona/escala/docs/architecture.md) | Visão geral da arquitetura, fluxo de dados, backend (Node/Express), frontend (SPA Vanilla CSS/JS) e gerenciamento de arquivos. |
-| 🔌 [**Referência de APIs**](file:///c:/Users/leona/escala/docs/api.md) | Documentação completa de todas as rotas REST (`/api/integrantes`, `/api/comodos`, `/api/escala`, `/api/infracoes`, `/api/config`). |
-| 🗄️ [**Modelos de Dados**](file:///c:/Users/leona/escala/docs/data-models.md) | Especificação das coleções JSON armazenadas em `backend/data/`. |
-| 📖 [**Guia do Usuário**](file:///c:/Users/leona/escala/docs/user-guide.md) | Manual prático de operação: gestão de integrantes, regras de rotação, infrações e personalização visual. |
-| ⚡ [**Guia Rápido**](file:///c:/Users/leona/escala/QUICK_START.md) | Guia rápido de instalação e execução inicial. |
+| 🏗️ [**Arquitetura do Sistema**](architecture.md) | Backend (Node/Express), frontend (SPA Vanilla), Supabase e o algoritmo do rodízio. |
+| 🔌 [**Referência de APIs**](api.md) | Todas as rotas REST (`/api/integrantes`, `/api/comodos`, `/api/escala`, `/api/infracoes`, `/api/config`, uploads). |
+| 🗄️ [**Modelos de Dados**](data-models.md) | Tabelas do Supabase e o bucket de imagens. |
+| 📖 [**Guia do Usuário**](user-guide.md) | Integrantes, cômodos, como o rodízio funciona, infrações e personalização. |
+| ⚡ [**Guia Rápido**](../QUICK_START.md) | Instalação e primeira execução. |
 
 ---
 
@@ -22,22 +20,21 @@ A documentação está estruturada com base nos módulos e componentes reais da 
 escala/
 ├── backend/
 │   ├── data/
-│   │   ├── comodos.json          # Lista de tarefas/cômodos e regras
-│   │   ├── config.json           # Configurações de tema, logo e fundo
-│   │   ├── escalas.json          # Histórico de escalas geradas
-│   │   ├── infracoes.json        # Registros de faltas e infrações
-│   │   ├── integrantes.json      # Lista de moradores e privilégios
-│   │   └── store.js              # Módulo de acesso e IO síncrono aos JSONs
-│   ├── uploads/                  # Armazenamento de mídia enviada (Multer)
-│   ├── package.json              # Dependências (Express, Multer, Cors, Body-Parser)
-│   └── server.js                 # Servidor HTTP, regras de negócios e endpoints REST
+│   │   ├── store.js              # Acesso às tabelas do Supabase (integrantes, comodos, escalas...)
+│   │   └── supabaseClient.js     # Cliente Supabase (lê SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY)
+│   ├── lib/
+│   │   ├── rodizio.js            # Algoritmo do rodízio semanal (folgas, suíte, cômodos)
+│   │   └── storage.js            # Upload/listagem/remoção de imagens no Supabase Storage
+│   └── server.js                 # Servidor Express e endpoints REST
 ├── frontend/
 │   ├── css/
 │   │   └── style.css             # Estilos responsivos e tema com variáveis CSS
 │   ├── js/
 │   │   ├── app.js                # Lógica da SPA, requisições fetch e renderização
-│   │   └── modal.js              # Gerenciador de modais de confirmação
+│   │   └── modal.js              # Modais de confirmação e de texto
 │   └── index.html                # Estrutura HTML da aplicação
-├── docs/                         # Documentação técnica organizada
-└── README.md                     # Apresentação principal do repositório
+├── docs/                         # Esta documentação
+├── package.json                  # Dependências e scripts (npm start)
+├── vercel.json                   # Deploy na Vercel
+└── README.md
 ```

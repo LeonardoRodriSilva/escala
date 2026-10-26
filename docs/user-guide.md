@@ -1,58 +1,66 @@
 # 📖 Guia do Usuário
 
-O **Escala** é simples e intuitivo. Este guia explica passo a passo como operar o aplicativo no dia a dia.
+Este guia explica como operar o **Escala** no dia a dia.
 
 ---
 
 ## 🚀 1. Primeiro Acesso
 
-1. Inicie o servidor via terminal:
+1. Configure o `.env` e inicie o servidor na raiz do projeto (veja o [README](../README.md)):
    ```bash
-   cd backend
+   npm install
    npm start
    ```
-2. Abra o navegador em `http://localhost:3000`.
+2. Abra o navegador em `http://localhost:3000` (ou na URL da Vercel).
 
 ---
 
 ## ⚙️ 2. Configurações Iniciais
 
-Na aba **⚙️ Configurações**, configure os dados base do seu grupo:
+Na aba **⚙️ Configurações**:
 
 ### A. Integrantes
-- Clique em **Adicionar Integrante**.
-- Informe o Nome.
-- Marque **"É da suíte?"** caso o integrante deva ser atribuído prioritariamente à limpeza do banheiro suíte.
-- Desmarque **"Está ativo?"** se alguém estiver viajando ou ausente temporariamente.
+- Informe o nome e clique em **Adicionar Integrante**.
+- Marque **"É da suíte?"** para quem mora na suíte: só essas pessoas fazem os cômodos "apenas suíte".
+- Desmarque **"Está ativo?"** se alguém estiver viajando ou ausente. A pessoa sai da próxima escala gerada (a da semana atual só muda se você gerar de novo).
 
-### B. Cômodos e Tarefas
-- Cadastre os cômodos da casa (ex.: *Cozinha*, *Sala*, *Lavanderia*, *Sacada*).
-- Configure a quantidade de pessoas necessárias (`Quantas pessoas?`).
-- Defina se o cômodo é restrito a moradores de suíte.
+### B. Cômodos
+- Cadastre os cômodos da casa (ex.: *Cozinha*, *Sala*, *Lavanderia*, *Sacada*). Os nomes não podem se repetir.
+- **Quantas pessoas?**: quantas pessoas o cômodo precisa por semana.
+- **Ordem na rotação**: a sequência que cada pessoa percorre (ordem 0 → 1 → 2...).
+- **Apenas suite members?**: marque no banheiro da suíte.
+- **Cômodo obrigatório?**: desmarque para tirar o cômodo da escala sem apagá-lo.
+- Não cadastre "FOLGA": as folgas são calculadas automaticamente.
+- Pode renomear um cômodo à vontade: o histórico acompanha o novo nome.
 
 ---
 
-## 📋 3. Gerando e Acompanhando a Escala
+## 📋 3. Gerando a Escala
 
-1. Navegue até a aba **📋 Escala Atual**.
-2. Clique no botão **🔄 Gerar Nova Escala**.
-3. O sistema aplicará a rotação inteligente, distribuindo as tarefas de forma justa com base no histórico anterior.
-4. Caso haja folgas calculadas, elas serão exibidas automaticamente no card correspondente.
+1. Na aba **📋 Escala Atual**, clique em **🔄 Gerar Nova Escala**.
+2. O rodízio é previsível e não tem sorteio:
+   - **Folgas**: sobram `integrantes ativos − vagas obrigatórias` por semana. Vão para quem está há mais tempo sem folgar, então todos folgam o mesmo número de vezes.
+   - **Banheiro da suíte**: um morador da suíte por semana, em revezamento.
+   - **Demais cômodos**: cada pessoa vai para o cômodo seguinte ao último que fez. Ninguém repete o mesmo cômodo na semana seguinte.
+3. Gerar de novo na mesma semana refaz a escala da semana com o mesmo resultado (a não ser que integrantes ou cômodos tenham mudado).
+4. Se faltar gente para as vagas, aparece um erro: ative mais integrantes ou desmarque cômodos obrigatórios.
+
+A semana vai de segunda a domingo e vira à 0h de segunda, no horário de Brasília.
 
 ---
 
 ## ❌ 4. Registro de Infrações
 
-1. Caso uma tarefa não seja realizada de acordo com o combinado, acesse a aba **❌ Infrações**.
-2. Selecione o integrante responsável no menu suspenso.
-3. Descreva o motivo no campo de texto e clique em **Registrar Infração**.
-4. O contador do integrante será incrementado e exibido no painel de resumo.
+1. Na escala, clique no ❌ do card da pessoa, ou vá na aba **❌ Infrações**.
+2. Selecione o integrante, descreva o que aconteceu e clique em **Registrar Infração**.
+3. O contador do integrante aumenta e aparece no resumo e no card da escala.
 
 ---
 
 ## 🎨 5. Personalização Visual
 
 Na aba **⚙️ Configurações**:
-- **Logo**: Envie a imagem da logo do seu grupo para personalizar o cabeçalho.
-- **Fundo**: Adicione uma imagem de plano de fundo para a aplicação.
-- **Esquema de Cores**: Escolha a cor primária, secundária, clara e escura utilizando o seletor de cores nativo. As alterações entram em vigor imediatamente após salvar.
+- **Imagens motivacionais**: envie imagens para a galeria. A cada escala gerada, uma delas é sorteada como destaque; você também pode escolher uma na galeria.
+- **Logo**: imagem do cabeçalho.
+- **Fundo**: imagem de plano de fundo da aplicação.
+- **Esquema de cores**: cor primária, secundária, clara e escura. **Restaurar Padrão** volta às cores originais.

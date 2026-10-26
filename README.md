@@ -1,45 +1,51 @@
 # 🏠 Escala - Sistema de Escalas de Limpeza
 
-Aplicação web intuitiva e completa para gerenciar escalas de limpeza semanais com rotação automática, regras customizadas por cômodo e registro de infrações.
+Aplicação web para gerenciar a escala semanal de limpeza da república: rodízio automático de cômodos e folgas, regra do banheiro da suíte, registro de infrações e personalização visual.
 
 ## ⚡ Como Rodar
 
-```bash
-cd backend
-npm install
-npm start
-```
+1. Crie um arquivo `.env` na raiz do projeto:
+   ```env
+   SUPABASE_URL=https://<seu-projeto>.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=<chave service_role do projeto>
+   ```
+2. Instale e inicie (na raiz do projeto):
+   ```bash
+   npm install
+   npm start
+   ```
+3. Acesse **http://localhost:3000**
 
-Depois acesse: **http://localhost:3000**
+Em produção o app roda na Vercel (`vercel.json`), com as mesmas variáveis de ambiente configuradas no painel.
 
 ---
 
 ## ✨ Funcionalidades Principais
 
-- 🔄 **Escala automática semanal** com rotação justa de tarefas.
-- 🛌 **Regra Suíte**: Restrição de tarefas de banheiro suíte apenas para moradores da suíte.
-- ☕ **Folgas automáticas** calculadas proporcionalmente.
-- ❌ **Gestão de infrações** com contador e histórico acumulativo por integrante.
-- 🎨 **Personalização visual**: Upload de logo, imagem de fundo, imagem motivacional e esquemas de cores.
-- 📅 **Histórico de escalas**: Consulta a escalas de semanas anteriores.
+- 🔄 **Rodízio semanal sem sorteio**: cada pessoa passa pelos cômodos em sequência, sem repetir o mesmo cômodo na semana seguinte.
+- 🛁 **Regra da suíte**: o banheiro da suíte é feito só por moradores da suíte, um por semana, em revezamento.
+- ☕ **Folgas automáticas e iguais para todos**: sobram `integrantes ativos − vagas obrigatórias` folgas por semana, para quem está há mais tempo sem folgar.
+- ❌ **Infrações** com contador e histórico por integrante.
+- 🎨 **Personalização visual**: logo, fundo, galeria de imagens motivacionais e cores.
+- 📅 **Histórico** das escalas de semanas anteriores.
 
 ---
 
-## 📚 Documentação Organizada
+## 📚 Documentação
 
-A documentação detalhada do projeto foi organizada com base nas estruturas do sistema e está disponível na pasta [`docs/`](file:///c:/Users/leona/escala/docs/README.md):
+A documentação detalhada está na pasta [`docs/`](docs/README.md):
 
-- 📌 [**Índice da Documentação**](file:///c:/Users/leona/escala/docs/README.md)
-- 🏗️ [**Arquitetura do Sistema**](file:///c:/Users/leona/escala/docs/architecture.md) — Visão geral do backend Node.js/Express e frontend SPA Vanilla.
-- 🔌 [**Referência de API**](file:///c:/Users/leona/escala/docs/api.md) — Documentação detalhada dos endpoints REST `/api/*`.
-- 🗄️ [**Modelos de Dados**](file:///c:/Users/leona/escala/docs/data-models.md) — Estruturas dos arquivos JSON em `backend/data/`.
-- 📖 [**Guia do Usuário**](file:///c:/Users/leona/escala/docs/user-guide.md) — Manual de operações e configurações.
-- ⚡ [**Guia Rápido**](file:///c:/Users/leona/escala/QUICK_START.md) — Passo a passo resumido de uso.
+- 🏗️ [**Arquitetura**](docs/architecture.md) — backend, frontend, banco e o algoritmo do rodízio.
+- 🔌 [**Referência da API**](docs/api.md) — endpoints REST `/api/*`.
+- 🗄️ [**Modelos de Dados**](docs/data-models.md) — tabelas do Supabase.
+- 📖 [**Guia do Usuário**](docs/user-guide.md) — uso no dia a dia.
+- ⚡ [**Guia Rápido**](QUICK_START.md) — passo a passo resumido.
 
 ---
 
 ## 🔧 Stack de Tecnologias
 
-- **Backend**: Node.js + Express.js + Multer
-- **Frontend**: HTML5 + CSS3 (Variáveis CSS dinâmicas) + JavaScript Vanilla
-- **Banco de Dados**: JSON local (zero dependência de banco de dados externo)
+- **Backend**: Node.js + Express + Multer (uploads em memória)
+- **Frontend**: HTML5 + CSS3 (variáveis CSS dinâmicas) + JavaScript Vanilla
+- **Banco de dados e arquivos**: Supabase (Postgres + Storage)
+- **Deploy**: Vercel
