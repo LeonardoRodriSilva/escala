@@ -35,10 +35,16 @@ const IMAGE_EXTENSION_REGEX = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
 
 export async function listGalleryImages({ exclude = [] } = {}) {
   const excludedKeys = new Set(exclude.map(getKeyFromPublicUrl).filter(Boolean));
-  const { data, error } = await supabase.storage.from(BUCKET).list('', { limit: 1000 });
-  if (error) throw error;
+  // O Storage também lista em páginas: busca até vir uma página vazia
+  const arquivos = [];
+  for (;;) {
+    const { data, error } = await supabase.storage.from(BUCKET).list('', { limit: 1000, offset: arquivos.length });
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    arquivos.push(...data);
+  }
 
-  return (data || [])
+  return arquivos
     .filter((entry) => IMAGE_EXTENSION_REGEX.test(entry.name))
     .filter((entry) => !excludedKeys.has(entry.name))
     .map((entry) => ({ filename: entry.name, path: getPublicUrl(entry.name) }));

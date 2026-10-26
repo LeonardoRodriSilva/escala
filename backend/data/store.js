@@ -22,6 +22,19 @@ const check = ({ data, error }) => {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// O Supabase devolve no máximo um número fixo de linhas por consulta (1000 por padrão), então
+// listas que crescem com o tempo são buscadas página por página até vir uma página vazia.
+// Avançar pelo tamanho recebido funciona mesmo se o limite do projeto for menor que PAGINA.
+const PAGINA = 1000;
+const selectAll = async (montarConsulta) => {
+  const linhas = [];
+  for (;;) {
+    const pagina = check(await montarConsulta().order('id').range(linhas.length, linhas.length + PAGINA - 1));
+    if (pagina.length === 0) return linhas;
+    linhas.push(...pagina);
+  }
+};
+
 // Busca uma linha pelo id direto no banco (ids que não são UUID nem chegam a consultar)
 const findRowById = async (table, id) => {
   if (!UUID_REGEX.test(String(id))) return null;
@@ -38,7 +51,7 @@ const integranteFromDb = (row) => ({
 
 export const IntegrantesStore = {
   async list() {
-    const rows = check(await supabase.from('integrantes').select('*'));
+    const rows = await selectAll(() => supabase.from('integrantes').select('*'));
     return rows.map(integranteFromDb);
   },
   async findById(id) {
@@ -115,7 +128,7 @@ const comodoChangesToDb = (changes) => {
 
 export const ComodosStore = {
   async list() {
-    const rows = check(await supabase.from('comodos').select('*'));
+    const rows = await selectAll(() => supabase.from('comodos').select('*'));
     return rows.map((row, index) => normalizeComodo(comodoFromDb(row), index));
   },
   async findById(id) {
@@ -157,7 +170,7 @@ const infracaoFromDb = (row) => ({
 
 export const InfracoesStore = {
   async list() {
-    const rows = check(await supabase.from('infracoes').select('*'));
+    const rows = await selectAll(() => supabase.from('infracoes').select('*'));
     return rows.map(infracaoFromDb);
   },
   async findById(id) {
@@ -165,7 +178,7 @@ export const InfracoesStore = {
     return row ? infracaoFromDb(row) : null;
   },
   async listByIntegranteId(integranteId) {
-    const rows = check(await supabase.from('infracoes').select('*').eq('integrante_id', String(integranteId)));
+    const rows = await selectAll(() => supabase.from('infracoes').select('*').eq('integrante_id', String(integranteId)));
     return rows.map(infracaoFromDb);
   },
   async create({ integranteId, integranteNome, descricao, dataSemana }) {
@@ -220,7 +233,13 @@ const escalaToDb = (escala) => ({
 
 export const EscalasStore = {
   async list() {
-    const rows = check(await supabase.from('escalas').select('*'));
+    const rows = await selectAll(() => supabase.from('escalas').select('*'));
+    return rows.map(escalaFromDb);
+  },
+  // Escalas a partir de uma semana (inclusive), para quem só precisa do histórico recente
+  async listDesde(ano, semana) {
+    const rows = await selectAll(() => supabase.from('escalas').select('*')
+      .or(`ano.gt.${ano},and(ano.eq.${ano},semana.gte.${semana})`));
     return rows.map(escalaFromDb);
   },
   async findById(id) {
@@ -257,18 +276,12 @@ export const EscalasStore = {
   // O histórico guarda o nome do cômodo: ao renomear, as escalas antigas acompanham para o
   // rodízio continuar reconhecendo quem já fez aquele cômodo
   async renomearComodo(nomeAntigo, nomeNovo) {
-    const afetadas = [];
-    const PAGINA = 1000;
-    for (let inicio = 0; ; inicio += PAGINA) {
-      const rows = check(await supabase.from('escalas').select('*').order('id').range(inicio, inicio + PAGINA - 1));
-      rows.map(escalaFromDb)
-        .filter(escala => Array.isArray(escala.comodos) && escala.comodos.includes(nomeAntigo))
-        .forEach(escala => afetadas.push({
-          ...escala,
-          comodos: escala.comodos.map(nome => (nome === nomeAntigo ? nomeNovo : nome))
-        }));
-      if (rows.length < PAGINA) break;
-    }
+    const afetadas = (await this.list())
+      .filter(escala => Array.isArray(escala.comodos) && escala.comodos.includes(nomeAntigo))
+      .map(escala => ({
+        ...escala,
+        comodos: escala.comodos.map(nome => (nome === nomeAntigo ? nomeNovo : nome))
+      }));
     return afetadas.length > 0 ? this.saveMany(afetadas) : [];
   },
   // Grava várias linhas completas num único upsert: ou todas mudam, ou nenhuma

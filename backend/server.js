@@ -75,6 +75,9 @@ const sortearMotivacaoDestaque = async (config) => {
 const FUSO_CASA = 'America/Sao_Paulo';
 const OFFSET_CASA = '-03:00';
 const DIA_MS = 86400000;
+// Quantas semanas de histórico o rodízio considera: cobre com folga um ciclo completo de
+// folgas, suíte e cômodos, e mantém a geração rápida mesmo com anos de histórico
+const SEMANAS_HISTORICO_RODIZIO = 52;
 
 // Data de hoje (00:00 UTC) segundo o calendário de Brasília
 function hojeNaCasa() {
@@ -372,8 +375,9 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
   const comodos = (await ComodosStore.list()).sort(sortByOrderThenName);
   const semanaAtual = getSemanaAtual();
 
-  // Histórico = todas as escalas exceto a semana atual (que está sendo regerada)
-  const historico = (await EscalasStore.list()).filter(e =>
+  // Histórico = último ano de escalas, exceto a semana atual (que está sendo regerada)
+  const inicioHistorico = getISOWeek(new Date(semanaAtual.dataInicio - SEMANAS_HISTORICO_RODIZIO * 7 * DIA_MS));
+  const historico = (await EscalasStore.listDesde(inicioHistorico.year, inicioHistorico.week)).filter(e =>
     !(e.ano === semanaAtual.ano && e.semana === semanaAtual.semana)
   );
 
