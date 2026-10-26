@@ -180,6 +180,14 @@ app.delete('/api/integrantes/:id', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
+// O rodízio identifica cômodos pelo nome, então dois cômodos não podem ter o mesmo
+const comodoComMesmoNome = async (nome, excludeId) => {
+  const alvo = String(nome).trim().toLowerCase();
+  return (await ComodosStore.list()).find(comodo =>
+    String(comodo.nome || '').trim().toLowerCase() === alvo && String(comodo.id) !== String(excludeId)
+  ) || null;
+};
+
 // ===== ROTAS DE CÔMODOS =====
 app.get('/api/comodos', asyncHandler(async (req, res) => {
   res.json((await ComodosStore.list()).sort(sortByOrderThenName));
@@ -192,6 +200,10 @@ app.post('/api/comodos', asyncHandler(async (req, res) => {
   }
 
   const { nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, ordem } = req.body;
+  if (await comodoComMesmoNome(nome)) {
+    return res.status(400).json({ error: 'Já existe um cômodo com esse nome.' });
+  }
+
   const novoComodo = await ComodosStore.create({
     nome: String(nome).trim(),
     imagem: imagem || null,
@@ -216,7 +228,12 @@ app.put('/api/comodos/:id', asyncHandler(async (req, res) => {
 
   const { nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, ordem } = req.body;
   const changes = {};
-  if (nome !== undefined) changes.nome = String(nome).trim();
+  if (nome !== undefined) {
+    if (await comodoComMesmoNome(nome, existente.id)) {
+      return res.status(400).json({ error: 'Já existe um cômodo com esse nome.' });
+    }
+    changes.nome = String(nome).trim();
+  }
   if (apenassuiteMembers !== undefined) changes.apenassuiteMembers = apenassuiteMembers;
   if (pessoasNecessarias !== undefined) changes.pessoasNecessarias = pessoasNecessarias;
   if (obrigatorio !== undefined) changes.obrigatorio = obrigatorio;
@@ -228,6 +245,9 @@ app.put('/api/comodos/:id', asyncHandler(async (req, res) => {
   }
 
   const atualizado = await ComodosStore.update(req.params.id, changes);
+  if (changes.nome !== undefined && changes.nome !== existente.nome) {
+    await EscalasStore.renomearComodo(existente.nome, changes.nome);
+  }
   res.json(atualizado);
 }));
 

@@ -254,6 +254,23 @@ export const EscalasStore = {
     const row = check(await supabase.from('escalas').update(dbChanges).eq('id', id).select().maybeSingle());
     return row ? escalaFromDb(row) : null;
   },
+  // O histórico guarda o nome do cômodo: ao renomear, as escalas antigas acompanham para o
+  // rodízio continuar reconhecendo quem já fez aquele cômodo
+  async renomearComodo(nomeAntigo, nomeNovo) {
+    const afetadas = [];
+    const PAGINA = 1000;
+    for (let inicio = 0; ; inicio += PAGINA) {
+      const rows = check(await supabase.from('escalas').select('*').order('id').range(inicio, inicio + PAGINA - 1));
+      rows.map(escalaFromDb)
+        .filter(escala => Array.isArray(escala.comodos) && escala.comodos.includes(nomeAntigo))
+        .forEach(escala => afetadas.push({
+          ...escala,
+          comodos: escala.comodos.map(nome => (nome === nomeAntigo ? nomeNovo : nome))
+        }));
+      if (rows.length < PAGINA) break;
+    }
+    return afetadas.length > 0 ? this.saveMany(afetadas) : [];
+  },
   // Grava várias linhas completas num único upsert: ou todas mudam, ou nenhuma
   async saveMany(escalas) {
     const rows = check(await supabase.from('escalas').upsert(escalas.map(escalaToDb)).select());
