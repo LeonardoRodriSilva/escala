@@ -16,6 +16,7 @@ import {
   normalizeBoolean,
   normalizeNumber
 } from './data/store.js';
+import { montarEscala } from './lib/rodizio.js';
 import { uploadImage, deleteImage, listGalleryImages, deleteImageByFilename, getKeyFromUrl } from './lib/storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -53,17 +54,6 @@ const upload = multer({
 });
 
 // ===== FUNÇÕES AUXILIARES =====
-// Fisher-Yates: embaralha uma cópia do array com aleatoriedade real, usada
-// como desempate final entre candidatos igualmente elegíveis.
-const shuffle = (items) => {
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-};
-
 const sortByOrderThenName = (a, b) => {
   const orderDiff = normalizeNumber(a.ordem, 0) - normalizeNumber(b.ordem, 0);
   if (orderDiff !== 0) return orderDiff;
@@ -387,37 +377,6 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
   }
 
   const mandatoryRooms = comodos.filter(comodo => comodo.obrigatorio !== false);
-  const suiteRooms = mandatoryRooms.filter(comodo => comodo.apenassuiteMembers);
-  const normalRooms = mandatoryRooms.filter(comodo => !comodo.apenassuiteMembers);
-  const totalRequiredSlots = mandatoryRooms.reduce((sum, room) => sum + Math.max(1, room.pessoasNecessarias || 1), 0);
-  const suiteCount = integrantesAtivos.filter(integrante => integrante.isSuite).length;
-  const suiteSlotsNecessarios = suiteRooms.reduce((sum, room) => sum + Math.max(1, room.pessoasNecessarias || 1), 0);
-
-  const historicoFolgas = new Map();
-  const historicoComodos = new Map();
-  historico.forEach(escala => {
-    const integranteId = escala.integranteId;
-    const nome = escala.integranteNome;
-    if (!integranteId && !nome) return;
-
-    const chave = integranteId ?? nome;
-    if (Array.isArray(escala.comodos) && escala.comodos.includes('FOLGA')) {
-      historicoFolgas.set(chave, (historicoFolgas.get(chave) || 0) + 1);
-    }
-
-    if (Array.isArray(escala.comodos)) {
-      escala.comodos.filter(item => item !== 'FOLGA' && item !== 'Nenhum').forEach(roomName => {
-        if (!historicoComodos.has(chave)) {
-          historicoComodos.set(chave, new Map());
-        }
-        const porRoom = historicoComodos.get(chave);
-        porRoom.set(roomName, (porRoom.get(roomName) || 0) + 1);
-      });
-    }
-  });
-
-  const criticas = [];
-  const avisos = [];
   if (mandatoryRooms.length === 0) {
     return res.status(400).json({
       error: 'Nenhum cômodo obrigatório configurado',
@@ -425,225 +384,30 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
     });
   }
 
-  if (suiteRooms.length > 0 && suiteCount === 0) {
-    criticas.push(`Existem ${suiteRooms.length} cômodo(s) exclusivos da suíte, mas nenhum integrante está marcado como suíte.`);
-  } else if (suiteSlotsNecessarios > suiteCount) {
-    criticas.push(`Há ${suiteSlotsNecessarios} vaga(s) obrigatória(s) de suíte para apenas ${suiteCount} morador(es) da suíte disponíveis.`);
+  const { erro, resultado, totalFolgas } = montarEscala({
+    integrantes: integrantesAtivos,
+    comodos: mandatoryRooms,
+    historico
+  });
+
+  if (erro) {
+    return res.status(400).json({ error: erro, criticas: [erro] });
   }
 
-  if (totalRequiredSlots > integrantesAtivos.length) {
-    avisos.push(`Há ${totalRequiredSlots} vagas obrigatórias para ${integrantesAtivos.length} pessoas. ${totalRequiredSlots - integrantesAtivos.length} pessoa(s) precisarão receber mais de uma tarefa.`);
-  }
-
-  const escalaPorIntegrante = new Map();
-  integrantesAtivos.forEach((integrante) => {
-    escalaPorIntegrante.set(integrante.id, {
+  const novaEscala = integrantesAtivos.map(integrante => {
+    const comodosIntegrante = resultado.get(integrante.id);
+    return {
       id: randomUUID(),
       ano: semanaAtual.ano,
       semana: semanaAtual.semana,
       integranteId: integrante.id,
       integranteNome: integrante.nome,
-      folga: false,
-      comodos: [],
+      folga: comodosIntegrante.includes('FOLGA'),
+      comodos: comodosIntegrante,
       dataInicio: new Date(semanaAtual.dataInicio),
       dataFim: new Date(semanaAtual.dataFim),
       alerta: null
-    });
-  });
-
-  const assignedCounts = new Map();
-  integrantesAtivos.forEach(integrante => assignedCounts.set(integrante.id, 0));
-
-  const totalFolgas = Math.max(0, integrantesAtivos.length - totalRequiredSlots);
-  // Moradores da suíte só podem folgar além do que o(s) cômodo(s) exclusivo(s) dela exigem:
-  // no máximo o excedente de moradores da suíte acima do necessário para preenchê-los.
-  const suiteFolgaSurplus = Math.max(0, suiteCount - suiteSlotsNecessarios);
-
-  const folgas = new Set();
-  let suiteFolgasEscolhidas = 0;
-  shuffle(integrantesAtivos)
-    .map(integrante => ({ integrante, folgas: historicoFolgas.get(integrante.id) || 0 }))
-    .sort((a, b) => a.folgas - b.folgas)
-    .forEach(({ integrante }) => {
-      if (folgas.size >= totalFolgas) return;
-      if (integrante.isSuite && suiteFolgasEscolhidas >= suiteFolgaSurplus) return;
-      folgas.add(integrante.id);
-      if (integrante.isSuite) suiteFolgasEscolhidas++;
-    });
-
-  const novaEscala = [];
-  const roomWarnings = [];
-  const roomFailures = [];
-
-  const roomPrioritySort = (a, b) => {
-    const ordemDiff = normalizeNumber(a.ordem, 0) - normalizeNumber(b.ordem, 0);
-    if (ordemDiff !== 0) return ordemDiff;
-    return String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR');
-  };
-
-  const assignmentOrder = [
-    ...suiteRooms.sort(roomPrioritySort),
-    ...normalRooms.sort(roomPrioritySort)
-  ];
-
-  const getCandidatePool = (room) => {
-    if (room.apenassuiteMembers) {
-      return integrantesAtivos.filter(integrante => integrante.isSuite);
-    }
-
-    const naoSuite = integrantesAtivos.filter(integrante => !integrante.isSuite);
-    const suite = integrantesAtivos.filter(integrante => integrante.isSuite);
-    return [...naoSuite, ...suite];
-  };
-
-  const getRoomHistoryCount = (integranteId, roomName) => {
-    const historicoIntegrante = historicoComodos.get(integranteId) || historicoComodos.get(String(integranteId));
-    if (!historicoIntegrante) return 0;
-    return historicoIntegrante.get(roomName) || 0;
-  };
-
-  const chooseCandidate = (room, usedInRoom) => {
-    const pool = getCandidatePool(room);
-    if (pool.length === 0) return null;
-
-    const rotatedPool = shuffle(pool);
-    const uniqueOrdered = [];
-    const seen = new Set();
-
-    rotatedPool.forEach(integrante => {
-      if (seen.has(integrante.id) || usedInRoom.has(integrante.id) || folgas.has(integrante.id)) return;
-      seen.add(integrante.id);
-      uniqueOrdered.push(integrante);
-    });
-
-    if (uniqueOrdered.length === 0) {
-      return null;
-    }
-
-    // Posição no sorteio deste cômodo/vaga: usada como desempate final para evitar viés
-    // alfabético (empates de histórico sempre favoreciam o mesmo nome).
-    const poolIndex = new Map(uniqueOrdered.map((integrante, idx) => [integrante.id, idx]));
-
-    const livres = uniqueOrdered
-      .filter(integrante => assignedCounts.get(integrante.id) === 0)
-      .sort((a, b) => {
-        const diffHistorico = getRoomHistoryCount(a.id, room.nome) - getRoomHistoryCount(b.id, room.nome);
-        if (diffHistorico !== 0) return diffHistorico;
-        const diffAtual = (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0);
-        if (diffAtual !== 0) return diffAtual;
-        return poolIndex.get(a.id) - poolIndex.get(b.id);
-      });
-
-    if (livres.length > 0) {
-      return { integrante: livres[0], reused: false };
-    }
-
-    const reutilizavel = uniqueOrdered
-      .filter(integrante => room.permitirMultiplasAtribuicoes || assignedCounts.get(integrante.id) === 0)
-      .sort((a, b) => {
-        const diffHistorico = getRoomHistoryCount(a.id, room.nome) - getRoomHistoryCount(b.id, room.nome);
-        if (diffHistorico !== 0) return diffHistorico;
-        const diffAtual = (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0);
-        if (diffAtual !== 0) return diffAtual;
-        return poolIndex.get(a.id) - poolIndex.get(b.id);
-      })[0] || null;
-
-    return reutilizavel ? { integrante: reutilizavel, reused: true } : null;
-  };
-
-  for (const room of assignmentOrder) {
-    const requiredSlots = Math.max(1, room.pessoasNecessarias || 1);
-    const usedInRoom = new Set();
-    let roomAssigned = 0;
-
-    for (let slotIndex = 0; slotIndex < requiredSlots; slotIndex++) {
-      const escolhido = chooseCandidate(room, usedInRoom);
-      const candidato = escolhido?.integrante || null;
-
-      if (!candidato) {
-        const pool = getCandidatePool(room);
-
-        if (room.apenassuiteMembers && suiteCount === 0) {
-          roomFailures.push(`Não foi possível preencher ${room.nome}: esse cômodo exige integrantes da suíte, mas nenhum morador foi marcado como suíte.`);
-        } else if (room.apenassuiteMembers && pool.length === 0) {
-          roomFailures.push(`Não foi possível preencher ${room.nome}: não há integrantes da suíte disponíveis.`);
-        } else {
-          roomWarnings.push(`O cômodo ${room.nome} precisou reutilizar integrante(s) para fechar a escala.`);
-          const fallback = pool
-            .filter(integrante => usedInRoom.has(integrante.id) === false && !folgas.has(integrante.id))
-            .sort((a, b) => (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0))[0];
-          if (fallback) {
-            usedInRoom.add(fallback.id);
-            const linhaFallback = escalaPorIntegrante.get(fallback.id);
-            if (linhaFallback && !linhaFallback.comodos.includes(room.nome)) {
-              linhaFallback.comodos.push(room.nome);
-            }
-            assignedCounts.set(fallback.id, (assignedCounts.get(fallback.id) || 0) + 1);
-            roomAssigned++;
-            continue;
-          }
-          roomFailures.push(`Não foi possível preencher ${room.nome}: a configuração atual não gerou uma combinação válida.`);
-        }
-
-        break;
-      }
-
-      if (escolhido.reused) {
-        roomWarnings.push(`O cômodo ${room.nome} reutilizou ${candidato.nome} por falta de pessoas livres.`);
-      }
-
-      usedInRoom.add(candidato.id);
-      roomAssigned++;
-
-      const linha = escalaPorIntegrante.get(candidato.id);
-      if (linha && !linha.comodos.includes(room.nome)) {
-        linha.comodos.push(room.nome);
-      }
-      assignedCounts.set(candidato.id, (assignedCounts.get(candidato.id) || 0) + 1);
-    }
-
-    if (roomAssigned < requiredSlots) {
-      break;
-    }
-  }
-
-  if (roomFailures.length > 0) {
-    return res.status(400).json({
-      error: roomFailures[0],
-      criticas: [...roomFailures, ...criticas]
-    });
-  }
-
-  const pessoasEmFolga = integrantesAtivos.filter(integrante => (assignedCounts.get(integrante.id) || 0) === 0);
-  pessoasEmFolga.forEach(integrante => {
-    const linha = escalaPorIntegrante.get(integrante.id);
-    if (linha) {
-      linha.folga = true;
-      linha.comodos = ['FOLGA'];
-    }
-  });
-
-  let alerta = null;
-  if (totalRequiredSlots === integrantesAtivos.length) {
-    alerta = 'Quantidade exata: ninguém ficou de folga nesta semana.';
-  } else if (totalRequiredSlots < integrantesAtivos.length) {
-    alerta = `${pessoasEmFolga.length} pessoa(s) ficaram de folga porque há ${integrantesAtivos.length} integrantes para ${totalRequiredSlots} vagas obrigatórias.`;
-  } else if (totalRequiredSlots > integrantesAtivos.length) {
-    alerta = `Faltam ${totalRequiredSlots - integrantesAtivos.length} pessoa(s); algumas receberam mais de uma tarefa para fechar a escala.`;
-  }
-
-  if (pessoasEmFolga.length === 0 && totalRequiredSlots <= integrantesAtivos.length) {
-    criticas.push('A configuração atual preencheu todas as vagas e não deixou folgas.');
-  }
-
-  criticas.push(...avisos, ...roomWarnings);
-
-  integrantesAtivos.forEach(integrante => {
-    const linha = escalaPorIntegrante.get(integrante.id);
-    if (!linha.folga && linha.comodos.length === 0) {
-      linha.comodos.push('Nenhum');
-    }
-    novaEscala.push(linha);
+    };
   });
 
   await EscalasStore.replaceSemana(semanaAtual.ano, semanaAtual.semana, novaEscala);
@@ -655,15 +419,11 @@ app.post('/api/escala/gerar', asyncHandler(async (req, res) => {
 
   res.json({
     escala: novaEscala,
-    alerta: alerta,
-    criticas: criticas,
-    motivacaoDestaque: config.motivacaoDestaque,
-    integrantesComMultiplos: Array.from(assignedCounts.entries())
-      .filter(([, total]) => total > 1)
-      .map(([integranteId]) => {
-        const integrante = integrantesAtivos.find(i => i.id === integranteId);
-        return integrante ? integrante.nome : integranteId;
-      })
+    alerta: totalFolgas === 0
+      ? 'Quantidade exata: ninguém ficou de folga nesta semana.'
+      : `${totalFolgas} pessoa(s) ficaram de folga porque há ${integrantesAtivos.length} integrantes para ${integrantesAtivos.length - totalFolgas} vagas obrigatórias.`,
+    criticas: [],
+    motivacaoDestaque: config.motivacaoDestaque
   });
 }));
 
