@@ -70,31 +70,38 @@ const sortearMotivacaoDestaque = async (config) => {
   return escolhido.path;
 };
 
-// Segunda-feira (00:00) da semana da data informada, sem mutar a data original
-function getMondayOfWeek(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  const day = d.getDay() || 7; // domingo=0 -> 7
-  if (day !== 1) d.setDate(d.getDate() - (day - 1));
-  return d;
+// A casa fica no Brasil, mas a Vercel roda em UTC: a semana é sempre calculada no horário
+// de Brasília (sem horário de verão desde 2019, então o offset é fixo).
+const FUSO_CASA = 'America/Sao_Paulo';
+const OFFSET_CASA = '-03:00';
+const DIA_MS = 86400000;
+
+// Data de hoje (00:00 UTC) segundo o calendário de Brasília
+function hojeNaCasa() {
+  const [ano, mes, dia] = new Intl.DateTimeFormat('en-CA', { timeZone: FUSO_CASA })
+    .format(new Date())
+    .split('-')
+    .map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia));
 }
 
 // Ano/semana no padrão ISO 8601 (correto em viradas de ano e anos bissextos)
-function getISOWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 4; // domingo=0 -> 4 (quinta é o dia de referência do ISO 8601)
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+function getISOWeek(dataUtc) {
+  const d = new Date(dataUtc);
+  const dayNum = d.getUTCDay() || 7; // domingo=0 -> 7
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // quinta é o dia de referência do ISO 8601
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  const week = Math.ceil((((d - yearStart) / DIA_MS) + 1) / 7);
   return { year: d.getUTCFullYear(), week };
 }
 
 function getSemanaAtual() {
-  const dataInicio = getMondayOfWeek(new Date());
-  const dataFim = new Date(dataInicio);
-  dataFim.setDate(dataFim.getDate() + 6);
-  const { year: ano, week: semana } = getISOWeek(dataInicio);
-  return { ano, semana, dataInicio, dataFim };
+  const hoje = hojeNaCasa();
+  const segunda = new Date(hoje - ((hoje.getUTCDay() || 7) - 1) * DIA_MS);
+  const domingo = new Date(segunda.getTime() + 6 * DIA_MS);
+  const meiaNoiteNaCasa = (dataUtc) => new Date(`${dataUtc.toISOString().slice(0, 10)}T00:00:00${OFFSET_CASA}`);
+  const { year: ano, week: semana } = getISOWeek(segunda);
+  return { ano, semana, dataInicio: meiaNoiteNaCasa(segunda), dataFim: meiaNoiteNaCasa(domingo) };
 }
 
 function validarComodoPayload(body, { parcial = false } = {}) {

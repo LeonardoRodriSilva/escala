@@ -518,8 +518,8 @@ async function carregarEscalaAtual() {
 
         // Pegar info da semana
         const primeira = escalas[0];
-        const dataInicio = new Date(primeira.dataInicio).toLocaleDateString('pt-BR');
-        const dataFim = new Date(primeira.dataFim).toLocaleDateString('pt-BR');
+        const dataInicio = new Date(primeira.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const dataFim = new Date(primeira.dataFim).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         document.getElementById('semana-info').textContent =
             `📅 Semana ${primeira.semana} de ${primeira.ano} (${dataInicio} a ${dataFim})`;
 
@@ -676,7 +676,7 @@ async function carregarHistorico() {
             div.className = 'historico-semana';
             div.innerHTML = `
                 <div class="historico-semana-header">
-                    <h4>Semana ${primeira.semana}/${primeira.ano} - ${new Date(primeira.dataInicio).toLocaleDateString('pt-BR')}</h4>
+                    <h4>Semana ${primeira.semana}/${primeira.ano} - ${new Date(primeira.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</h4>
                     <button class="btn btn-danger" onclick="deletarHistoricoSemana(${primeira.ano}, ${primeira.semana})">Excluir semana</button>
                 </div>
             `;
