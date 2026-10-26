@@ -80,7 +80,6 @@ const DEFAULT_COMODO_CONFIG = {
   imagem: null,
   apenassuiteMembers: false,
   pessoasNecessarias: 1,
-  permitirMultiplasAtribuicoes: false,
   obrigatorio: true,
   ordem: 0
 };
@@ -89,7 +88,6 @@ const normalizeComodo = (comodo = {}, index = 0) => ({
   ...DEFAULT_COMODO_CONFIG,
   ...comodo,
   pessoasNecessarias: Math.max(1, Math.min(10, normalizeNumber(comodo.pessoasNecessarias, 1))),
-  permitirMultiplasAtribuicoes: normalizeBoolean(comodo.permitirMultiplasAtribuicoes, false),
   obrigatorio: normalizeBoolean(comodo.obrigatorio, true),
   ordem: Math.max(0, Math.trunc(normalizeNumber(comodo.ordem, index)))
 });
@@ -100,7 +98,6 @@ const comodoFromDb = (row) => ({
   imagem: row.imagem,
   apenassuiteMembers: row.apenas_suite_members,
   pessoasNecessarias: row.pessoas_necessarias,
-  permitirMultiplasAtribuicoes: row.permitir_multiplas_atribuicoes,
   obrigatorio: row.obrigatorio,
   ordem: row.ordem
 });
@@ -111,7 +108,6 @@ const comodoChangesToDb = (changes) => {
   if (changes.imagem !== undefined) dbChanges.imagem = changes.imagem;
   if (changes.apenassuiteMembers !== undefined) dbChanges.apenas_suite_members = normalizeBoolean(changes.apenassuiteMembers, false);
   if (changes.pessoasNecessarias !== undefined) dbChanges.pessoas_necessarias = Math.max(1, Math.min(10, normalizeNumber(changes.pessoasNecessarias, 1)));
-  if (changes.permitirMultiplasAtribuicoes !== undefined) dbChanges.permitir_multiplas_atribuicoes = normalizeBoolean(changes.permitirMultiplasAtribuicoes, false);
   if (changes.obrigatorio !== undefined) dbChanges.obrigatorio = normalizeBoolean(changes.obrigatorio, true);
   if (changes.ordem !== undefined) dbChanges.ordem = Math.max(0, Math.trunc(normalizeNumber(changes.ordem, 0)));
   return dbChanges;
@@ -133,7 +129,7 @@ export const ComodosStore = {
       imagem: novo.imagem,
       apenas_suite_members: novo.apenassuiteMembers,
       pessoas_necessarias: novo.pessoasNecessarias,
-      permitir_multiplas_atribuicoes: novo.permitirMultiplasAtribuicoes,
+      permitir_multiplas_atribuicoes: false, // coluna legada: o rodízio nunca dá dois cômodos à mesma pessoa
       obrigatorio: novo.obrigatorio,
       ordem: novo.ordem
     }).select().single());

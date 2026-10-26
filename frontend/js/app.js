@@ -5,14 +5,11 @@ const API_URL = `${window.location.origin}/api`;
 const app = {
     integrantes: [],
     comodos: [],
-    escalas: [],
     infracoes: [],
     motivacoes: [],
     motivacaoDestaque: null,
     config: {},
-    imagemComodoAtual: null,
-    comodoEmEdicao: null,
-    integranteEmEdicao: null
+    imagemComodoAtual: null
 };
 
 const LOGO_PADRAO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="%23FFD700" stroke="%23000" stroke-width="4"/><rect x="40" y="50" width="120" height="100" fill="%23DC0000"/><text x="100" y="130" font-size="80" font-weight="bold" text-anchor="middle" font-family="Arial" fill="%23FFD700">B</text><circle cx="75" cy="75" r="15" fill="%23FFF"/><circle cx="125" cy="75" r="15" fill="%23FFF"/><circle cx="75" cy="80" r="8" fill="%23000"/><circle cx="125" cy="80" r="8" fill="%23000"/></svg>';
@@ -217,9 +214,7 @@ function editarIntegrante(id) {
     document.getElementById('integrante-ativo').checked = integrante.ativo !== false;
     document.getElementById('btn-integrante-submit').textContent = '✏️ Salvar Alterações';
     document.getElementById('btn-integrante-cancel').style.display = 'inline-block';
-    
-    app.integranteEmEdicao = id;
-    
+
     // Scroll para o formulário
     setTimeout(() => {
         document.getElementById('form-integrante').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -232,7 +227,6 @@ function cancelarEdicaoIntegrante() {
     document.getElementById('btn-integrante-submit').textContent = 'Adicionar Integrante';
     document.getElementById('btn-integrante-cancel').style.display = 'none';
     document.getElementById('integrante-ativo').checked = true;
-    app.integranteEmEdicao = null;
 }
 
 async function deletarIntegrante(id) {
@@ -294,7 +288,6 @@ async function adicionarOuEditarComodo(e) {
     const nome = document.getElementById('comodo-nome').value.trim();
     const apenassuiteMembers = document.getElementById('comodo-suite').checked;
     const obrigatorio = document.getElementById('comodo-obrigatorio').checked;
-    const permitirMultiplasAtribuicoes = document.getElementById('comodo-multiplas').checked;
     const pessoasNecessarias = parseInt(document.getElementById('comodo-pessoas').value) || 1;
     const ordem = parseInt(document.getElementById('comodo-ordem').value) || 0;
     const imagem = app.imagemComodoAtual ?? null;
@@ -316,7 +309,6 @@ async function adicionarOuEditarComodo(e) {
                     apenassuiteMembers,
                     pessoasNecessarias,
                     obrigatorio,
-                    permitirMultiplasAtribuicoes,
                     ordem
                 })
             });
@@ -337,7 +329,7 @@ async function adicionarOuEditarComodo(e) {
             const response = await fetch(`${API_URL}/comodos`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, permitirMultiplasAtribuicoes, ordem })
+                body: JSON.stringify({ nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, ordem })
             });
 
             if (response.ok) {
@@ -348,7 +340,6 @@ async function adicionarOuEditarComodo(e) {
                 document.getElementById('comodo-pessoas').value = '1';
                 document.getElementById('comodo-ordem').value = '0';
                 document.getElementById('comodo-obrigatorio').checked = true;
-                document.getElementById('comodo-multiplas').checked = false;
                 app.imagemComodoAtual = null;
                 document.getElementById('upload-status').textContent = '';
                 atualizarPreviewImagemComodo(null);
@@ -365,7 +356,6 @@ async function adicionarOuEditarComodo(e) {
 }
 
 function editarComodo(id) {
-    console.log('Editando comodo:', id); // Debug
     const comodo = app.comodos.find(c => c.id == id);
     if (!comodo) {
         console.error('Comodo não encontrado:', id);
@@ -376,7 +366,6 @@ function editarComodo(id) {
     document.getElementById('comodo-nome').value = comodo.nome;
     document.getElementById('comodo-suite').checked = comodo.apenassuiteMembers;
     document.getElementById('comodo-obrigatorio').checked = comodo.obrigatorio !== false;
-    document.getElementById('comodo-multiplas').checked = !!comodo.permitirMultiplasAtribuicoes;
     document.getElementById('comodo-pessoas').value = comodo.pessoasNecessarias || 1;
     document.getElementById('comodo-ordem').value = comodo.ordem || 0;
     document.getElementById('btn-comodo-submit').textContent = '✏️ Salvar Alterações';
@@ -385,8 +374,6 @@ function editarComodo(id) {
     app.imagemComodoAtual = comodo.imagem || null;
     atualizarPreviewImagemComodo(app.imagemComodoAtual);
     document.getElementById('upload-status').textContent = '';
-
-    app.comodoEmEdicao = id;
 
     // Scroll para o formulário
     setTimeout(() => {
@@ -403,9 +390,7 @@ function cancelarEdicaoComodo() {
     document.getElementById('comodo-pessoas').value = '1';
     document.getElementById('comodo-ordem').value = '0';
     document.getElementById('comodo-obrigatorio').checked = true;
-    document.getElementById('comodo-multiplas').checked = false;
     app.imagemComodoAtual = null;
-    app.comodoEmEdicao = null;
     atualizarPreviewImagemComodo(null);
 }
 
@@ -499,7 +484,6 @@ function renderizarComodos() {
                 <span class="list-item-name">${comodo.nome}</span>
                 ${comodo.apenassuiteMembers ? '<span class="list-item-badge">Suite</span>' : ''}
                 ${comodo.obrigatorio === false ? '<span class="list-item-badge list-item-badge-muted">Opcional</span>' : ''}
-                ${comodo.permitirMultiplasAtribuicoes ? '<span class="list-item-badge list-item-badge-muted">Múltiplas</span>' : ''}
                 <span class="list-item-badge list-item-badge-muted">Ordem ${comodo.ordem ?? 0}</span>
             </div>
             <div class="list-item-actions">
@@ -516,7 +500,6 @@ async function carregarEscalaAtual() {
     try {
         const response = await fetch(`${API_URL}/escala/atual`);
         const escalas = await response.json();
-        app.escalas = escalas;
 
         if (escalas.length === 0) {
             document.getElementById('escala-container').innerHTML =
@@ -635,18 +618,9 @@ async function gerarNovaEscala() {
         }
         const resultado = await response.json();
 
-        // Processar novo formato: pode vir como array ou com { escala, alerta }
-        let novaEscala, alerta;
-        if (Array.isArray(resultado)) {
-            novaEscala = resultado;
-            alerta = null;
-        } else {
-            novaEscala = resultado.escala;
-            alerta = resultado.alerta;
-        }
+        const { escala: novaEscala, alerta } = resultado;
 
-        app.escalas = novaEscala;
-        if (!Array.isArray(resultado) && resultado.motivacaoDestaque !== undefined) {
+        if (resultado.motivacaoDestaque !== undefined) {
             app.motivacaoDestaque = resultado.motivacaoDestaque;
         }
         renderizarEscalaTabela(novaEscala);

@@ -1,7 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import bodyParser from 'body-parser';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -30,8 +29,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 // Converte handlers assíncronos: erros caem aqui em vez de derrubar o processo
@@ -185,13 +184,12 @@ app.post('/api/comodos', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: erros[0], erros });
   }
 
-  const { nome, imagem, apenassuiteMembers, pessoasNecessarias, permitirMultiplasAtribuicoes, obrigatorio, ordem } = req.body;
+  const { nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, ordem } = req.body;
   const novoComodo = await ComodosStore.create({
     nome: String(nome).trim(),
     imagem: imagem || null,
     apenassuiteMembers,
     pessoasNecessarias,
-    permitirMultiplasAtribuicoes,
     obrigatorio,
     ordem
   });
@@ -209,12 +207,11 @@ app.put('/api/comodos/:id', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: erros[0], erros });
   }
 
-  const { nome, imagem, apenassuiteMembers, pessoasNecessarias, permitirMultiplasAtribuicoes, obrigatorio, ordem } = req.body;
+  const { nome, imagem, apenassuiteMembers, pessoasNecessarias, obrigatorio, ordem } = req.body;
   const changes = {};
   if (nome !== undefined) changes.nome = String(nome).trim();
   if (apenassuiteMembers !== undefined) changes.apenassuiteMembers = apenassuiteMembers;
   if (pessoasNecessarias !== undefined) changes.pessoasNecessarias = pessoasNecessarias;
-  if (permitirMultiplasAtribuicoes !== undefined) changes.permitirMultiplasAtribuicoes = permitirMultiplasAtribuicoes;
   if (obrigatorio !== undefined) changes.obrigatorio = obrigatorio;
   if (ordem !== undefined) changes.ordem = ordem;
 
@@ -253,20 +250,6 @@ app.post('/api/upload-motivacao-image', upload.single('image'), asyncHandler(asy
   }
   const { filename, path: imagePath } = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
   res.json({ filename, path: imagePath });
-}));
-
-app.post('/api/upload-background-image', upload.single('image'), asyncHandler(async (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'Nenhuma imagem enviada' });
-  }
-
-  const config = await ConfigStore.get();
-  await deleteImage(config.background);
-  const { path: imagePath, filename } = await uploadImage(req.file.buffer, req.file.originalname, req.file.mimetype);
-  config.background = imagePath;
-  await ConfigStore.save(config);
-
-  res.json({ filename, path: config.background, config });
 }));
 
 // ===== ROTAS DE ESCALA =====
