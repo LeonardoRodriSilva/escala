@@ -625,6 +625,17 @@ body::before {
     padding-bottom: 10px;
 }
 
+.versao-info p {
+    margin-bottom: 8px;
+    word-break: break-word;
+}
+
+.versao-info code {
+    background: #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
 .integrantes-list,
 .comodos-list {
     margin-bottom: 20px;

@@ -70,5 +70,6 @@ Ao gerar, cada integrante ativo recebe uma linha. Quem está de folga tem `comod
 | `GET` | `/api/uploads/motivacao` | Lista a galeria de motivação (sem logo e fundo) | Array de `{ "filename", "path" }` |
 | `POST` | `/api/config/motivacao-destaque` | Define a imagem em destaque na escala | `{ "path": string }` |
 | `DELETE` | `/api/uploads/motivacao/:filename` | Remove uma imagem da galeria | `{ "success": true }` |
+| `GET` | `/api/versao` | Commit em execução (na Vercel, lido das variáveis `VERCEL_GIT_*`; localmente, do git) | `{ "ambiente", "sha", "branch", "mensagem", "autor", "data", "url" }` |
 
 A cada geração de escala, uma nova imagem da galeria é sorteada como destaque.

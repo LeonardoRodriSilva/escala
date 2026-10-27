@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { randomUUID } from 'crypto';
+import { execSync } from 'child_process';
 import {
   IntegrantesStore,
   ComodosStore,
@@ -533,6 +534,40 @@ app.get('/api/infracoes-resumo/todas', asyncHandler(async (req, res) => {
 
   res.json(resumo);
 }));
+
+// ===== VERSÃO EM EXECUÇÃO =====
+// Na Vercel, o commit vem das variáveis de sistema VERCEL_GIT_*. Localmente, do git.
+function lerVersao() {
+  if (process.env.VERCEL) {
+    const sha = process.env.VERCEL_GIT_COMMIT_SHA || null;
+    const dono = process.env.VERCEL_GIT_REPO_OWNER;
+    const repo = process.env.VERCEL_GIT_REPO_SLUG;
+    return {
+      ambiente: process.env.VERCEL_ENV || 'vercel',
+      sha,
+      branch: process.env.VERCEL_GIT_COMMIT_REF || null,
+      mensagem: process.env.VERCEL_GIT_COMMIT_MESSAGE || null,
+      autor: process.env.VERCEL_GIT_COMMIT_AUTHOR_LOGIN || null,
+      data: null,
+      url: sha && dono && repo ? `https://github.com/${dono}/${repo}/commit/${sha}` : null
+    };
+  }
+
+  try {
+    const git = (args) => execSync(`git ${args}`, { cwd: __dirname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    const [sha, autor, data, mensagem] = git('log -1 --format=%H%n%an%n%cI%n%s').split('\n');
+    return { ambiente: 'local', sha, branch: git('rev-parse --abbrev-ref HEAD'), mensagem, autor, data, url: null };
+  } catch {
+    return { ambiente: 'local', sha: null, branch: null, mensagem: null, autor: null, data: null, url: null };
+  }
+}
+
+const VERSAO = lerVersao();
+
+app.get('/api/versao', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.json(VERSAO);
+});
 
 // ===== CONFIGURAÇÕES (LOGO, FUNDO E CORES) =====
 app.get('/api/config', asyncHandler(async (req, res) => {

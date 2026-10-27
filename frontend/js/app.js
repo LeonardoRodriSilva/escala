@@ -18,6 +18,7 @@ const LOGO_PADRAO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/
 document.addEventListener('DOMContentLoaded', () => {
     atualizarModoVisual('escala');
     carregarConfig();
+    carregarVersao();
     carregarDados();
     setupEventListeners();
     setupTabs();
@@ -1096,6 +1097,37 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// ===== VERSÃO EM EXECUÇÃO =====
+async function carregarVersao() {
+    const container = document.getElementById('versao-info');
+    try {
+        const versao = await fetch(`${API_URL}/versao`, { cache: 'no-store' }).then(r => r.json());
+        if (!versao.sha) {
+            container.innerHTML = '<p>Versão não identificada.</p>';
+            return;
+        }
+
+        const shaCurto = escaparHtml(versao.sha.slice(0, 7));
+        const commit = versao.url
+            ? `<a href="${escaparHtml(versao.url)}" target="_blank" rel="noopener"><code>${shaCurto}</code></a>`
+            : `<code>${shaCurto}</code>`;
+        const data = versao.data
+            ? new Date(versao.data).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })
+            : null;
+
+        container.innerHTML = `
+            <p><strong>Ambiente:</strong> ${escaparHtml(versao.ambiente)}</p>
+            <p><strong>Commit:</strong> ${commit}${versao.branch ? ` (${escaparHtml(versao.branch)})` : ''}</p>
+            ${versao.mensagem ? `<p><strong>Mensagem:</strong> ${escaparHtml(versao.mensagem)}</p>` : ''}
+            ${versao.autor ? `<p><strong>Autor:</strong> ${escaparHtml(versao.autor)}</p>` : ''}
+            ${data ? `<p><strong>Data:</strong> ${escaparHtml(data)}</p>` : ''}
+        `;
+    } catch (error) {
+        console.error('Erro ao carregar versão:', error);
+        container.innerHTML = '<p>Não foi possível carregar a versão.</p>';
+    }
+}
 
 // ===== CONFIGURAÇÕES (LOGO E CORES) =====
 async function carregarConfig() {
