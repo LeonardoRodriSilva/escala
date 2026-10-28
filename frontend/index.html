@@ -2,245 +2,291 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escala - Escala de Limpeza</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#DC0000">
+    <title>Escala da República</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- HEADER -->
-        <header class="header">
-            <div class="header-content">
+    <!-- HEADER -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-ring">
                 <img id="logo-top" class="logo-top" alt="Logo da República" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><circle cx='100' cy='100' r='95' fill='%23FFD700' stroke='%23000' stroke-width='4'/><rect x='40' y='50' width='120' height='100' fill='%23DC0000'/><text x='100' y='130' font-size='80' font-weight='bold' text-anchor='middle' font-family='Arial' fill='%23FFD700'>B</text><circle cx='75' cy='75' r='15' fill='%23FFF'/><circle cx='125' cy='75' r='15' fill='%23FFF'/><circle cx='75' cy='80' r='8' fill='%23000'/><circle cx='125' cy='80' r='8' fill='%23000'/></svg>">
-                <h1>🏠 Escala</h1>
-                <p class="subtitle">Escala de Limpeza da República</p>
             </div>
-            <nav class="nav-tabs">
-                <button class="tab-btn active" data-tab="escala">📋 Escala Atual</button>
-                <button class="tab-btn" data-tab="historico">📅 Histórico</button>
-                <button class="tab-btn" data-tab="infracoes">❌ Infrações</button>
-                <button class="tab-btn" data-tab="config">⚙️ Configurações</button>
-            </nav>
-        </header>
+            <div class="header-text">
+                <h1><i class="fa-solid fa-house-user"></i> Escala</h1>
+                <p class="subtitle">Limpeza da República</p>
+            </div>
+        </div>
+    </header>
 
-        <!-- CONTEÚDO PRINCIPAL -->
-        <main class="main-content">
+    <!-- NAVEGAÇÃO (fixa no topo ao rolar) -->
+    <nav class="nav-tabs">
+        <div class="nav-tabs-inner">
+            <button class="tab-btn active" data-tab="escala">
+                <i class="fa-regular fa-clipboard"></i><span>Atual</span>
+            </button>
+            <button class="tab-btn" data-tab="historico">
+                <i class="fa-solid fa-clock-rotate-left"></i><span>Histórico</span>
+            </button>
+            <button class="tab-btn" data-tab="infracoes">
+                <i class="fa-solid fa-triangle-exclamation"></i><span>Infrações</span>
+            </button>
+            <button class="tab-btn" data-tab="config">
+                <i class="fa-solid fa-gear"></i><span>Config</span>
+            </button>
+        </div>
+    </nav>
 
-            <!-- ABA: ESCALA ATUAL -->
-            <section id="escala" class="tab-content active">
-                <div class="section-header">
-                    <h2>Escala da Semana</h2>
-                    <button class="btn btn-primary" id="btn-gerar-escala">🔄 Gerar Nova Escala</button>
-                </div>
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="main-content">
 
-                <div class="escala-info">
-                    <p id="semana-info" class="semana-info"></p>
-                </div>
-
-                <div id="criticas-escala-container" class="criticas-escala-container"></div>
-
-                <div id="escala-container" class="escala-grid">
-                    <!-- Preenchido dinamicamente (inclui a imagem de motivação da semana) -->
-                </div>
-            </section>
-
-            <!-- ABA: HISTÓRICO -->
-            <section id="historico" class="tab-content">
-                <div class="section-header">
-                    <h2>Histórico de Escalas</h2>
-                </div>
-
-                <div id="historico-container" class="historico-list">
-                    <!-- Preenchido dinamicamente -->
-                </div>
-            </section>
-
-            <!-- ABA: INFRAÇÕES -->
-            <section id="infracoes" class="tab-content">
-                <div class="section-header">
-                    <h2>Registro de Infrações</h2>
-                </div>
-
-                <div class="infracoes-resumo">
-                    <h3>📊 Resumo de Infrações por Integrante</h3>
-                    <div id="infracoes-resumo-container" class="resumo-container">
-                        <!-- Preenchido dinamicamente -->
+        <!-- ABA: ESCALA ATUAL -->
+        <section id="escala" class="tab-content active">
+            <div class="escala-topo">
+                <div class="semana-card">
+                    <div class="semana-card-icon"><i class="fa-regular fa-calendar"></i></div>
+                    <div>
+                        <span id="semana-titulo" class="semana-titulo">Carregando...</span>
+                        <span id="semana-datas" class="semana-datas"></span>
                     </div>
                 </div>
+                <button class="btn btn-primary btn-lg" id="btn-gerar-escala">
+                    <i class="fa-solid fa-arrows-rotate"></i> Gerar Nova Escala
+                </button>
+            </div>
 
-                <div class="registrar-infracao-section">
-                    <h3>➕ Registrar Infração</h3>
-                    <form id="form-infracao" class="form-infracao">
-                        <select id="infracao-integrante" required>
-                            <option value="">Selecione o integrante...</option>
-                        </select>
-                        <textarea id="infracao-descricao" placeholder="Descrição da infração..." required></textarea>
-                        <button type="submit" class="btn btn-success">Registrar Infração</button>
-                    </form>
-                </div>
-            </section>
+            <div id="criticas-escala-container" class="criticas-escala-container"></div>
 
-            <!-- ABA: CONFIGURAÇÕES -->
-            <section id="config" class="tab-content">
-                <div class="section-header">
-                    <h2>Configurações</h2>
-                </div>
+            <div id="escala-container">
+                <!-- Preenchido dinamicamente (inclui a imagem de motivação da semana) -->
+            </div>
+        </section>
 
-                <div class="config-section">
-                    <div class="config-box">
-                        <h3>👥 Integrantes da República</h3>
-                        <div id="integrantes-list" class="integrantes-list">
+        <!-- ABA: HISTÓRICO -->
+        <section id="historico" class="tab-content">
+            <h2 class="section-title">Semanas Anteriores</h2>
+            <div id="historico-container" class="historico-list">
+                <!-- Preenchido dinamicamente -->
+            </div>
+        </section>
+
+        <!-- ABA: INFRAÇÕES -->
+        <section id="infracoes" class="tab-content">
+            <h2 class="section-title">Quadro de Infrações</h2>
+            <p class="section-help">Toque em um integrante para ver e remover as infrações.</p>
+
+            <div id="infracoes-resumo-container" class="card resumo-container">
+                <!-- Preenchido dinamicamente -->
+            </div>
+
+            <div class="card card-padded">
+                <h3 class="card-title"><i class="fa-solid fa-plus"></i> Registrar Nova Infração</h3>
+                <form id="form-infracao" class="form-stack">
+                    <select id="infracao-integrante" required>
+                        <option value="">Selecione o integrante...</option>
+                    </select>
+                    <textarea id="infracao-descricao" placeholder="Motivo da infração..." required></textarea>
+                    <button type="submit" class="btn btn-secondary-color">Registrar Infração</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ABA: CONFIGURAÇÕES -->
+        <section id="config" class="tab-content">
+            <h2 class="section-title">Ajustes do Sistema</h2>
+
+            <div class="card settings-list">
+
+                <!-- Integrantes -->
+                <div class="acc" id="acc-integrantes">
+                    <button type="button" class="acc-header" aria-expanded="false">
+                        <span class="acc-icon icon-blue"><i class="fa-solid fa-users"></i></span>
+                        <span class="acc-label">Integrantes da República</span>
+                        <i class="fa-solid fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="acc-body"><div class="acc-inner">
+                        <div id="integrantes-list" class="item-list">
                             <!-- Preenchido dinamicamente -->
                         </div>
-                        <form id="form-integrante" class="form-config">
+                        <form id="form-integrante" class="form-stack form-divider">
+                            <h4 class="form-title" id="integrante-form-titulo">Novo integrante</h4>
                             <input type="hidden" id="integrante-id">
                             <input type="text" id="integrante-nome" placeholder="Nome do integrante" required>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="integrante-suite">
-                                É da suíte?
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="integrante-ativo" checked>
-                                Está ativo?
-                            </label>
-                            <button type="submit" class="btn btn-success" id="btn-integrante-submit">Adicionar Integrante</button>
-                            <button type="button" class="btn btn-secondary" id="btn-integrante-cancel" style="display:none;">Cancelar</button>
+                            <div class="check-row">
+                                <label class="checkbox-label"><input type="checkbox" id="integrante-suite"> É da suíte?</label>
+                                <label class="checkbox-label"><input type="checkbox" id="integrante-ativo" checked> Está ativo?</label>
+                            </div>
+                            <div class="btn-row">
+                                <button type="button" class="btn btn-ghost" id="btn-integrante-cancel" style="display:none;">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" id="btn-integrante-submit">Adicionar Integrante</button>
+                            </div>
                         </form>
-                    </div>
+                    </div></div>
+                </div>
 
-                    <div class="config-box">
-                        <h3>🚪 Cômodos/Tarefas</h3>
-                        <div id="comodos-list" class="comodos-list">
+                <!-- Cômodos / Tarefas -->
+                <div class="acc" id="acc-comodos">
+                    <button type="button" class="acc-header" aria-expanded="false">
+                        <span class="acc-icon icon-green"><i class="fa-solid fa-broom"></i></span>
+                        <span class="acc-label">Cômodos e Tarefas</span>
+                        <i class="fa-solid fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="acc-body"><div class="acc-inner">
+                        <div id="comodos-list" class="item-list">
                             <!-- Preenchido dinamicamente -->
                         </div>
-                        <form id="form-comodo" class="form-config">
+                        <form id="form-comodo" class="form-stack form-divider">
+                            <h4 class="form-title" id="comodo-form-titulo">Novo cômodo/tarefa</h4>
                             <input type="hidden" id="comodo-id">
                             <input type="text" id="comodo-nome" placeholder="Nome do cômodo/tarefa" required>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="comodo-suite">
-                                Apenas suite members?
-                            </label>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="comodo-obrigatorio" checked>
-                                Cômodo obrigatório?
-                            </label>
-                            <label>
-                                Quantas pessoas? 
-                                <input type="number" id="comodo-pessoas" min="1" max="5" value="1" style="width:60px;">
-                            </label>
-                            <label>
-                                Ordem na rotação:
-                                <input type="number" id="comodo-ordem" min="0" step="1" value="0" style="width:70px;">
-                            </label>
-                            <div class="upload-section">
-                                <label for="comodo-imagem">Foto (opcional):</label>
-                                <input type="file" id="comodo-imagem" accept="image/*">
-                                <span id="upload-status"></span>
-                                <div id="comodo-imagem-preview" class="image-preview"></div>
-                                <button type="button" id="btn-comodo-imagem-remover" class="btn btn-secondary" style="display:none;">🗑️ Remover imagem</button>
+                            <div class="check-row">
+                                <label class="checkbox-label"><input type="checkbox" id="comodo-suite"> Apenas suíte?</label>
+                                <label class="checkbox-label"><input type="checkbox" id="comodo-obrigatorio" checked> Obrigatório?</label>
                             </div>
-                            <button type="submit" class="btn btn-success" id="btn-comodo-submit">Adicionar Cômodo</button>
-                            <button type="button" class="btn btn-secondary" id="btn-comodo-cancel" style="display:none;">Cancelar</button>
+                            <div class="field-row">
+                                <label class="field">
+                                    <span>Quantas pessoas?</span>
+                                    <input type="number" id="comodo-pessoas" min="1" max="5" value="1" inputmode="numeric">
+                                </label>
+                                <label class="field">
+                                    <span>Ordem na rotação</span>
+                                    <input type="number" id="comodo-ordem" min="0" step="1" value="0" inputmode="numeric">
+                                </label>
+                            </div>
+                            <div class="upload-section">
+                                <label for="comodo-imagem" class="upload-drop upload-drop-sm">
+                                    <i class="fa-solid fa-camera"></i>
+                                    <span>Foto do cômodo (opcional)</span>
+                                </label>
+                                <input type="file" id="comodo-imagem" accept="image/*" class="visually-hidden">
+                                <span id="upload-status" class="upload-status"></span>
+                                <div id="comodo-imagem-preview" class="image-preview"></div>
+                                <button type="button" id="btn-comodo-imagem-remover" class="btn btn-ghost btn-sm" style="display:none;"><i class="fa-solid fa-trash"></i> Remover imagem</button>
+                            </div>
+                            <div class="btn-row">
+                                <button type="button" class="btn btn-ghost" id="btn-comodo-cancel" style="display:none;">Cancelar</button>
+                                <button type="submit" class="btn btn-primary" id="btn-comodo-submit">Adicionar Cômodo</button>
+                            </div>
                         </form>
-                    </div>
+                    </div></div>
+                </div>
 
-                    <div class="config-box">
-                        <h3>📸 Upload de Imagens Motivacionais</h3>
-                        <form id="form-motivacao" class="form-config">
-                            <label for="motivacao-imagem">Selecione uma imagem:</label>
-                            <input type="file" id="motivacao-imagem" accept="image/*" required>
+                <!-- Galeria de motivação -->
+                <div class="acc" id="acc-imagens">
+                    <button type="button" class="acc-header" aria-expanded="false">
+                        <span class="acc-icon icon-purple"><i class="fa-regular fa-image"></i></span>
+                        <span class="acc-label">Galeria de Imagens</span>
+                        <i class="fa-solid fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="acc-body"><div class="acc-inner">
+                        <form id="form-motivacao" class="form-stack">
+                            <label for="motivacao-imagem" class="upload-drop">
+                                <i class="fa-solid fa-upload"></i>
+                                <span id="motivacao-imagem-nome">Toque para selecionar uma imagem</span>
+                            </label>
+                            <input type="file" id="motivacao-imagem" accept="image/*" class="visually-hidden" required>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="motivacao-definir-destaque" checked>
-                                Usar como imagem em destaque na escala?
+                                Usar como imagem em destaque na escala
                             </label>
-                            <button type="submit" class="btn btn-success">Upload Motivação</button>
+                            <button type="submit" class="btn btn-primary">Enviar Imagem</button>
                         </form>
-                    </div>
-
-                    <div class="config-box">
-                        <h3>🗂️ Galeria de Motivação</h3>
-                        <p class="config-help">Escolha uma imagem para destacar na escala ou exclua arquivos que não serão mais usados.</p>
+                        <p class="config-help">Toque em <strong>Destacar</strong> para mostrar a imagem na escala da semana.</p>
                         <div id="motivacao-admin-galeria" class="motivacao-admin-galeria">
                             <!-- Preenchido dinamicamente -->
                         </div>
-                    </div>
+                    </div></div>
+                </div>
 
-                    <div class="config-box">
-                        <h3>🎨 Logo da República</h3>
+                <!-- Aparência -->
+                <div class="acc" id="acc-aparencia">
+                    <button type="button" class="acc-header" aria-expanded="false">
+                        <span class="acc-icon icon-orange"><i class="fa-solid fa-palette"></i></span>
+                        <span class="acc-label">Aparência e Logo</span>
+                        <i class="fa-solid fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="acc-body"><div class="acc-inner">
+                        <h4 class="form-title">Logo da República</h4>
                         <div id="logo-preview" class="image-preview">
-                            <p style="color: #999; font-size: 14px;">Nenhuma logo definida</p>
+                            <p class="empty-state">Nenhuma logo definida</p>
                         </div>
-                        <form id="form-logo" class="form-config">
-                            <label for="logo-upload">Selecione o logo (PNG/JPG):</label>
+                        <form id="form-logo" class="form-stack">
                             <input type="file" id="logo-upload" accept="image/png,image/jpeg" required>
-                            <button type="submit" class="btn btn-success">Enviar Logo</button>
+                            <button type="submit" class="btn btn-dark">Enviar Logo</button>
                         </form>
-                    </div>
 
-                    <div class="config-box">
-                        <h3>🖼️ Fundo da Aplicação</h3>
+                        <hr class="divider">
+
+                        <h4 class="form-title">Fundo da Aplicação</h4>
                         <div id="background-preview" class="image-preview">
-                            <p style="color: #999; font-size: 14px;">Nenhum fundo definido</p>
+                            <p class="empty-state">Nenhum fundo definido</p>
                         </div>
-                        <form id="form-background" class="form-config">
-                            <label for="background-upload">Selecione a imagem de fundo:</label>
+                        <form id="form-background" class="form-stack">
                             <input type="file" id="background-upload" accept="image/*" required>
-                            <button type="submit" class="btn btn-success">Enviar Fundo</button>
+                            <button type="submit" class="btn btn-dark">Aplicar Fundo</button>
                         </form>
-                    </div>
 
-                    <div class="config-box">
-                        <h3>🎨 Esquema de Cores</h3>
-                        <form id="form-cores" class="form-config">
-                            <div class="color-group">
-                                <label for="cor-primaria">Cor Primária:</label>
-                                <div style="display: flex; gap: 10px;">
+                        <hr class="divider">
+
+                        <h4 class="form-title">Esquema de Cores</h4>
+                        <form id="form-cores" class="form-stack">
+                            <div class="color-grid">
+                                <label class="color-group">
                                     <input type="color" id="cor-primaria" value="#DC0000">
-                                    <input type="text" id="cor-primaria-hex" value="#DC0000" style="width: 100px;" readonly>
-                                </div>
-                            </div>
-                            <div class="color-group">
-                                <label for="cor-secundaria">Cor Secundária:</label>
-                                <div style="display: flex; gap: 10px;">
+                                    <span>Primária<input type="text" id="cor-primaria-hex" value="#DC0000" readonly tabindex="-1"></span>
+                                </label>
+                                <label class="color-group">
                                     <input type="color" id="cor-secundaria" value="#FFD700">
-                                    <input type="text" id="cor-secundaria-hex" value="#FFD700" style="width: 100px;" readonly>
-                                </div>
-                            </div>
-                            <div class="color-group">
-                                <label for="cor-branca">Cor Clara:</label>
-                                <div style="display: flex; gap: 10px;">
+                                    <span>Secundária<input type="text" id="cor-secundaria-hex" value="#FFD700" readonly tabindex="-1"></span>
+                                </label>
+                                <label class="color-group">
                                     <input type="color" id="cor-branca" value="#FFFFFF">
-                                    <input type="text" id="cor-branca-hex" value="#FFFFFF" style="width: 100px;" readonly>
-                                </div>
-                            </div>
-                            <div class="color-group">
-                                <label for="cor-preta">Cor Escura:</label>
-                                <div style="display: flex; gap: 10px;">
+                                    <span>Clara<input type="text" id="cor-branca-hex" value="#FFFFFF" readonly tabindex="-1"></span>
+                                </label>
+                                <label class="color-group">
                                     <input type="color" id="cor-preta" value="#000000">
-                                    <input type="text" id="cor-preta-hex" value="#000000" style="width: 100px;" readonly>
-                                </div>
+                                    <span>Escura<input type="text" id="cor-preta-hex" value="#000000" readonly tabindex="-1"></span>
+                                </label>
                             </div>
-                            <button type="submit" class="btn btn-success">Salvar Cores</button>
-                            <button type="button" class="btn btn-secondary" onclick="resetarCores()">Restaurar Padrão</button>
+                            <div class="btn-row">
+                                <button type="button" class="btn btn-ghost" onclick="resetarCores()">Restaurar Padrão</button>
+                                <button type="submit" class="btn btn-primary">Salvar Cores</button>
+                            </div>
                         </form>
-                    </div>
+                    </div></div>
+                </div>
 
-                    <div class="config-box">
-                        <h3>🚀 Versão em Execução</h3>
+                <!-- Versão -->
+                <div class="acc" id="acc-versao">
+                    <button type="button" class="acc-header" aria-expanded="false">
+                        <span class="acc-icon icon-gray"><i class="fa-solid fa-code-branch"></i></span>
+                        <span class="acc-label">Versão em Execução</span>
+                        <i class="fa-solid fa-chevron-down acc-chevron"></i>
+                    </button>
+                    <div class="acc-body"><div class="acc-inner">
                         <div id="versao-info" class="versao-info">
                             <p>Carregando...</p>
                         </div>
-                    </div>
+                    </div></div>
                 </div>
-            </section>
 
-        </main>
+            </div>
+        </section>
 
-        <!-- FOOTER -->
-        <footer class="footer">
-            <p>Escala © 2024 | Limpeza com responsabilidade! 🧹</p>
-        </footer>
-    </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <p>Escala · Limpeza com responsabilidade! 🧹</p>
+    </footer>
+
+    <div id="toast-area" class="toast-area" aria-live="polite"></div>
 
     <script src="js/modal.js"></script>
     <script src="js/app.js"></script>

@@ -9,19 +9,22 @@ const app = {
     motivacoes: [],
     motivacaoDestaque: null,
     config: {},
-    imagemComodoAtual: null
+    imagemComodoAtual: null,
+    escalaAtual: [],
+    editandoIntegranteId: null,
+    editandoComodoId: null
 };
 
 const LOGO_PADRAO = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="95" fill="%23FFD700" stroke="%23000" stroke-width="4"/><rect x="40" y="50" width="120" height="100" fill="%23DC0000"/><text x="100" y="130" font-size="80" font-weight="bold" text-anchor="middle" font-family="Arial" fill="%23FFD700">B</text><circle cx="75" cy="75" r="15" fill="%23FFF"/><circle cx="125" cy="75" r="15" fill="%23FFF"/><circle cx="75" cy="80" r="8" fill="%23000"/><circle cx="125" cy="80" r="8" fill="%23000"/></svg>';
 
 // ===== INICIALIZAÇÃO =====
 document.addEventListener('DOMContentLoaded', () => {
-    atualizarModoVisual('escala');
     carregarConfig();
     carregarVersao();
     carregarDados();
     setupEventListeners();
     setupTabs();
+    setupAccordions();
 });
 
 function setupTabs() {
@@ -38,8 +41,6 @@ function mudarAba(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    atualizarModoVisual(tabName);
-
     // Adicionar active ao tab selecionado
     document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     document.getElementById(tabName).classList.add('active');
@@ -52,10 +53,35 @@ function mudarAba(tabName) {
     } else if (tabName === 'infracoes') {
         carregarInfracoes();
     }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function atualizarModoVisual(tabName) {
-    document.body.classList.toggle('scale-view', tabName === 'escala');
+// ===== ACCORDION (CONFIGURAÇÕES) =====
+function setupAccordions() {
+    document.querySelectorAll('.acc-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const acc = header.closest('.acc');
+            definirAccordionAberto(acc, !acc.classList.contains('open'));
+        });
+    });
+}
+
+function definirAccordionAberto(acc, aberto) {
+    acc.classList.toggle('open', aberto);
+    acc.querySelector('.acc-header').setAttribute('aria-expanded', String(aberto));
+}
+
+function abrirAccordion(id) {
+    definirAccordionAberto(document.getElementById(id), true);
+}
+
+// Iniciais para o avatar (ex.: "Terezinha" -> "TE", "João Pedro" -> "JP")
+function iniciais(nome) {
+    const partes = String(nome || '').trim().split(/\s+/).filter(Boolean);
+    if (partes.length === 0) return '?';
+    if (partes.length === 1) return partes[0].slice(0, 2).toUpperCase();
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
 }
 
 // Escapa texto vindo do banco (nomes, descrições) antes de colocá-lo em innerHTML
@@ -83,12 +109,13 @@ function validarArquivoImagem(file) {
 function definirCarregando(botao, carregando, textoCarregando = '⏳ Enviando...') {
     if (!botao) return;
     if (carregando) {
-        botao.dataset.textoOriginal = botao.dataset.textoOriginal || botao.textContent;
+        botao.dataset.htmlOriginal = botao.dataset.htmlOriginal || botao.innerHTML;
         botao.disabled = true;
         botao.textContent = textoCarregando;
     } else {
         botao.disabled = false;
-        botao.textContent = botao.dataset.textoOriginal || botao.textContent;
+        if (botao.dataset.htmlOriginal) botao.innerHTML = botao.dataset.htmlOriginal;
+        delete botao.dataset.htmlOriginal;
     }
 }
 
@@ -144,6 +171,13 @@ function setupEventListeners() {
     });
     document.getElementById('cor-preta').addEventListener('change', (e) => {
         document.getElementById('cor-preta-hex').value = e.target.value;
+    });
+
+    // Mostra o nome do arquivo escolhido na área de upload da galeria
+    document.getElementById('motivacao-imagem').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        document.getElementById('motivacao-imagem-nome').textContent = file ? file.name : 'Toque para selecionar uma imagem';
+        e.target.previousElementSibling.classList.toggle('has-file', Boolean(file));
     });
 
     // Botão gerar escala
@@ -220,8 +254,13 @@ function editarIntegrante(id) {
     document.getElementById('integrante-nome').value = integrante.nome;
     document.getElementById('integrante-suite').checked = integrante.isSuite;
     document.getElementById('integrante-ativo').checked = integrante.ativo !== false;
-    document.getElementById('btn-integrante-submit').textContent = '✏️ Salvar Alterações';
-    document.getElementById('btn-integrante-cancel').style.display = 'inline-block';
+    document.getElementById('integrante-form-titulo').textContent = `Editando: ${integrante.nome}`;
+    document.getElementById('btn-integrante-submit').textContent = 'Salvar Alterações';
+    document.getElementById('btn-integrante-cancel').style.display = '';
+    document.getElementById('form-integrante').classList.add('form-editando');
+    app.editandoIntegranteId = String(id);
+    renderizarIntegrantes();
+    abrirAccordion('acc-integrantes');
 
     // Scroll para o formulário
     setTimeout(() => {
@@ -232,9 +271,13 @@ function editarIntegrante(id) {
 function cancelarEdicaoIntegrante() {
     document.getElementById('integrante-id').value = '';
     document.getElementById('form-integrante').reset();
+    document.getElementById('integrante-form-titulo').textContent = 'Novo integrante';
     document.getElementById('btn-integrante-submit').textContent = 'Adicionar Integrante';
     document.getElementById('btn-integrante-cancel').style.display = 'none';
     document.getElementById('integrante-ativo').checked = true;
+    document.getElementById('form-integrante').classList.remove('form-editando');
+    app.editandoIntegranteId = null;
+    renderizarIntegrantes();
 }
 
 async function deletarIntegrante(id) {
@@ -244,6 +287,7 @@ async function deletarIntegrante(id) {
         const response = await fetch(`${API_URL}/integrantes/${id}`, { method: 'DELETE' });
         if (response.ok) {
             app.integrantes = app.integrantes.filter(i => i.id !== id);
+            if (app.editandoIntegranteId === String(id)) cancelarEdicaoIntegrante();
             renderizarIntegrantes();
             mostrarNotificacao('Integrante removido', 'success');
         } else {
@@ -260,18 +304,27 @@ function renderizarIntegrantes() {
     const container = document.getElementById('integrantes-list');
     container.innerHTML = '';
 
+    if (app.integrantes.length === 0) {
+        container.innerHTML = '<p class="empty-state">Nenhum integrante cadastrado.</p>';
+    }
+
     app.integrantes.forEach(integrante => {
+        const inativo = integrante.ativo === false;
+        const editando = app.editandoIntegranteId === String(integrante.id);
         const item = document.createElement('div');
-        item.className = 'list-item';
+        item.className = `list-item ${inativo ? 'inativo' : ''} ${editando ? 'editando' : ''}`;
         item.innerHTML = `
-            <div>
+            <div class="list-item-info">
                 <span class="list-item-name">${escaparHtml(integrante.nome)}</span>
-                ${integrante.isSuite ? '<span class="list-item-badge">Suite</span>' : ''}
-                ${integrante.ativo === false ? '<span class="list-item-badge list-item-badge-muted">Inativo</span>' : '<span class="list-item-badge list-item-badge-muted">Ativo</span>'}
+                <div class="list-item-meta">
+                    ${editando ? '<span class="list-item-badge badge-editando"><i class="fa-solid fa-pen"></i> Editando</span>' : ''}
+                    ${integrante.isSuite ? '<span class="list-item-badge">Suíte</span>' : ''}
+                    <span class="list-item-badge list-item-badge-muted">${inativo ? 'Inativo' : 'Ativo'}</span>
+                </div>
             </div>
             <div class="list-item-actions">
-                <button class="btn btn-secondary" onclick="editarIntegrante('${integrante.id}')">✏️</button>
-                <button class="btn btn-danger" onclick="deletarIntegrante('${integrante.id}')">🗑️</button>
+                <button class="icon-btn" title="Editar" aria-label="Editar" onclick="editarIntegrante('${integrante.id}')"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger" title="Remover" aria-label="Remover" onclick="deletarIntegrante('${integrante.id}')"><i class="fa-solid fa-trash"></i></button>
             </div>
         `;
         container.appendChild(item);
@@ -376,8 +429,13 @@ function editarComodo(id) {
     document.getElementById('comodo-obrigatorio').checked = comodo.obrigatorio !== false;
     document.getElementById('comodo-pessoas').value = comodo.pessoasNecessarias || 1;
     document.getElementById('comodo-ordem').value = comodo.ordem || 0;
-    document.getElementById('btn-comodo-submit').textContent = '✏️ Salvar Alterações';
-    document.getElementById('btn-comodo-cancel').style.display = 'inline-block';
+    document.getElementById('comodo-form-titulo').textContent = `Editando: ${comodo.nome}`;
+    document.getElementById('btn-comodo-submit').textContent = 'Salvar Alterações';
+    document.getElementById('btn-comodo-cancel').style.display = '';
+    document.getElementById('form-comodo').classList.add('form-editando');
+    app.editandoComodoId = String(id);
+    renderizarComodos();
+    abrirAccordion('acc-comodos');
 
     app.imagemComodoAtual = comodo.imagem || null;
     atualizarPreviewImagemComodo(app.imagemComodoAtual);
@@ -392,6 +450,7 @@ function editarComodo(id) {
 function cancelarEdicaoComodo() {
     document.getElementById('comodo-id').value = '';
     document.getElementById('form-comodo').reset();
+    document.getElementById('comodo-form-titulo').textContent = 'Novo cômodo/tarefa';
     document.getElementById('btn-comodo-submit').textContent = 'Adicionar Cômodo';
     document.getElementById('btn-comodo-cancel').style.display = 'none';
     document.getElementById('upload-status').textContent = '';
@@ -400,6 +459,9 @@ function cancelarEdicaoComodo() {
     document.getElementById('comodo-obrigatorio').checked = true;
     app.imagemComodoAtual = null;
     atualizarPreviewImagemComodo(null);
+    document.getElementById('form-comodo').classList.remove('form-editando');
+    app.editandoComodoId = null;
+    renderizarComodos();
 }
 
 function atualizarPreviewImagemComodo(imagemPath) {
@@ -409,7 +471,7 @@ function atualizarPreviewImagemComodo(imagemPath) {
 
     if (imagemPath) {
         preview.innerHTML = `<img src="${imagemPath}" alt="Imagem do cômodo">`;
-        btnRemover.style.display = 'inline-block';
+        btnRemover.style.display = '';
     } else {
         preview.innerHTML = '';
         btnRemover.style.display = 'none';
@@ -468,6 +530,7 @@ async function deletarComodo(id) {
         const response = await fetch(`${API_URL}/comodos/${id}`, { method: 'DELETE' });
         if (response.ok) {
             app.comodos = app.comodos.filter(c => c.id !== id);
+            if (app.editandoComodoId === String(id)) cancelarEdicaoComodo();
             renderizarComodos();
             mostrarNotificacao('Cômodo removido', 'success');
         } else {
@@ -484,19 +547,30 @@ function renderizarComodos() {
     const container = document.getElementById('comodos-list');
     container.innerHTML = '';
 
+    if (app.comodos.length === 0) {
+        container.innerHTML = '<p class="empty-state">Nenhum cômodo cadastrado.</p>';
+    }
+
     app.comodos.forEach(comodo => {
+        const pessoas = comodo.pessoasNecessarias || 1;
+        const editando = app.editandoComodoId === String(comodo.id);
         const item = document.createElement('div');
-        item.className = 'list-item';
+        item.className = `list-item ${editando ? 'editando' : ''}`;
         item.innerHTML = `
-            <div>
+            ${comodo.imagem ? `<img class="list-item-thumb" src="${escaparHtml(comodo.imagem)}" alt="">` : ''}
+            <div class="list-item-info">
                 <span class="list-item-name">${escaparHtml(comodo.nome)}</span>
-                ${comodo.apenassuiteMembers ? '<span class="list-item-badge">Suite</span>' : ''}
-                ${comodo.obrigatorio === false ? '<span class="list-item-badge list-item-badge-muted">Opcional</span>' : ''}
-                <span class="list-item-badge list-item-badge-muted">Ordem ${comodo.ordem ?? 0}</span>
+                <div class="list-item-meta">
+                    ${editando ? '<span class="list-item-badge badge-editando"><i class="fa-solid fa-pen"></i> Editando</span>' : ''}
+                    ${comodo.apenassuiteMembers ? '<span class="list-item-badge">Suíte</span>' : ''}
+                    <span class="list-item-badge list-item-badge-muted">${comodo.obrigatorio === false ? 'Opcional' : 'Obrigatório'}</span>
+                    <span class="list-item-badge list-item-badge-muted">${pessoas} pessoa${pessoas > 1 ? 's' : ''}</span>
+                    <span class="list-item-badge list-item-badge-muted">Ordem ${comodo.ordem ?? 0}</span>
+                </div>
             </div>
             <div class="list-item-actions">
-                <button class="btn btn-secondary" onclick="editarComodo('${comodo.id}')">✏️</button>
-                <button class="btn btn-danger" onclick="deletarComodo('${comodo.id}')">🗑️</button>
+                <button class="icon-btn" title="Editar" aria-label="Editar" onclick="editarComodo('${comodo.id}')"><i class="fa-solid fa-pen"></i></button>
+                <button class="icon-btn danger" title="Remover" aria-label="Remover" onclick="deletarComodo('${comodo.id}')"><i class="fa-solid fa-trash"></i></button>
             </div>
         `;
         container.appendChild(item);
@@ -510,19 +584,13 @@ async function carregarEscalaAtual() {
         const escalas = await response.json();
 
         if (escalas.length === 0) {
+            app.escalaAtual = [];
             document.getElementById('escala-container').innerHTML =
-                '<p style="grid-column: 1/-1; text-align: center; color: #999;">Nenhuma escala gerada. Clique em "Gerar Nova Escala" para começar!</p>';
-            document.getElementById('semana-info').textContent = 'Nenhuma escala gerada ainda';
+                '<div class="card"><p class="empty-state">Nenhuma escala gerada. Toque em "Gerar Nova Escala" para começar!</p></div>';
+            atualizarInfoSemana(null);
             renderizarCriticasEscala([]);
             return;
         }
-
-        // Pegar info da semana
-        const primeira = escalas[0];
-        const dataInicio = new Date(primeira.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-        const dataFim = new Date(primeira.dataFim).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-        document.getElementById('semana-info').textContent =
-            `📅 Semana ${primeira.semana} de ${primeira.ano} (${dataInicio} a ${dataFim})`;
 
         renderizarEscalaTabela(escalas);
         renderizarCriticasEscala([]);
@@ -531,7 +599,26 @@ async function carregarEscalaAtual() {
     }
 }
 
-function renderizarEscalaTabela(escalas) {
+function atualizarInfoSemana(primeira) {
+    const titulo = document.getElementById('semana-titulo');
+    const datas = document.getElementById('semana-datas');
+
+    if (!primeira) {
+        titulo.textContent = 'Nenhuma escala gerada ainda';
+        datas.textContent = '';
+        return;
+    }
+
+    const dataInicio = new Date(primeira.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const dataFim = new Date(primeira.dataFim).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    titulo.textContent = `Semana ${primeira.semana} de ${primeira.ano}`;
+    datas.textContent = `${dataInicio} a ${dataFim}`;
+}
+
+// `anterior` (opcional): escala de antes de gerar, para destacar quem mudou de tarefa
+function renderizarEscalaTabela(escalas, anterior = null) {
+    app.escalaAtual = escalas;
+    const tarefaAnterior = new Map((anterior || []).map(e => [String(e.integranteId), (e.comodos || []).join('|')]));
     const container = document.getElementById('escala-container');
     container.innerHTML = '';
     const resumoInfracoes = app.infracoes || {};
@@ -539,49 +626,51 @@ function renderizarEscalaTabela(escalas) {
     const totalXs = Object.values(resumoInfracoes).reduce((sum, dados) => sum + (dados?.total || 0), 0);
     const destaqueMotivacao = app.motivacaoDestaque || app.motivacoes[0]?.path || null;
 
+    atualizarInfoSemana(escalas[0]);
+
+    // Guardado no estado para que renderizarMotivacaoDestaque() redesenhe os chips sobre a imagem
+    app.statsEscala = `
+        <span class="stat-chip highlight"><i class="fa-solid fa-users"></i> ${escalas.length} pessoas</span>
+        <span class="stat-chip"><i class="fa-solid fa-mug-hot"></i> ${totalFolgas} folga${totalFolgas === 1 ? '' : 's'}</span>
+        <span class="stat-chip" title="Total acumulado no histórico, não apenas desta semana"><i class="fa-solid fa-xmark"></i> ${totalXs} acumulado${totalXs === 1 ? '' : 's'}</span>
+    `;
+
     const cards = escalas.map(escala => {
         const isFolga = Array.isArray(escala.comodos) && escala.comodos.includes('FOLGA');
         const totalInfracoes = resumoInfracoes[escala.integranteId]?.total || 0;
         const tarefas = Array.isArray(escala.comodos) ? escala.comodos.filter(item => item !== 'FOLGA') : [];
 
+        const mudou = anterior !== null && tarefaAnterior.get(String(escala.integranteId)) !== (escala.comodos || []).join('|');
+
         const rotulo = isFolga
-            ? '😴 Folga'
-            : (tarefas.length > 0 ? tarefas.join(', ').toUpperCase() : 'Nenhum cômodo');
+            ? '<i class="fa-solid fa-mug-hot"></i> Folga'
+            : escaparHtml(tarefas.length > 0 ? tarefas.join(' + ') : 'Nenhum cômodo');
 
         return `
-            <article class="escala-card ${isFolga ? 'folga' : ''}">
+            <article class="escala-card ${isFolga ? 'folga' : ''} ${!isFolga && totalInfracoes > 0 ? 'com-x' : ''} ${anterior !== null ? 'recem-gerado' : ''} ${mudou ? 'mudou' : ''}">
                 <div class="escala-card-info">
-                    <span class="escala-card-name">${escaparHtml(escala.integranteNome)}</span>
-                    <span class="escala-card-comodo ${isFolga ? 'is-folga' : ''}">- ${escaparHtml(rotulo)}</span>
+                    <span class="escala-card-name">
+                        ${escaparHtml(escala.integranteNome)}
+                        ${totalInfracoes > 0 ? `<span class="escala-card-badge" title="${totalInfracoes} infração(ões) acumulada(s)">${totalInfracoes}X</span>` : ''}
+                        ${mudou ? '<span class="escala-card-novo">novo</span>' : ''}
+                    </span>
+                    <span class="escala-card-comodo ${isFolga ? 'is-folga' : ''}">${rotulo}</span>
                 </div>
-                <div class="escala-card-right">
-                    <span class="escala-card-badge ${isFolga ? 'folga' : ''}" title="${totalInfracoes} infração(ões)">${totalInfracoes}</span>
-                    ${!isFolga ? `<button class="escala-card-x-btn" title="Marcar X" onclick="marcarInfracaoRapido('${escala.integranteId}')">❌</button>` : ''}
-                </div>
+                ${!isFolga ? `<button class="escala-card-x-btn" title="Marcar X" aria-label="Marcar infração para ${escaparHtml(escala.integranteNome)}" onclick="marcarInfracaoRapido('${escala.integranteId}')"><i class="fa-solid fa-xmark"></i></button>` : ''}
             </article>
         `;
     }).join('');
 
-    const html = `
+    container.innerHTML = `
         <div class="escala-dashboard">
-            <div class="escala-dashboard-header">
-                <h3 class="escala-dashboard-title">Escala da semana</h3>
-                <div class="escala-dashboard-stats">
-                    <span class="stat-chip">${escalas.length} pessoas</span>
-                    <span class="stat-chip">${totalFolgas} folga(s)</span>
-                    <span class="stat-chip" title="Total acumulado no histórico, não apenas desta semana">${totalXs} X(s) acumulados</span>
-                </div>
-            </div>
-            <div id="motivacao-destaque-container" class="motivacao-destaque-container">
-                ${destaqueMotivacao ? `<div class="motivacao-destaque-card"><img src="${destaqueMotivacao}" alt="Imagem de motivação da semana"></div>` : '<p class="empty-state">Sem imagem</p>'}
-            </div>
+            <div id="motivacao-destaque-container" class="motivacao-destaque-container"></div>
             <div class="escala-cards-grid">
                 ${cards}
             </div>
         </div>
     `;
 
-    container.innerHTML = html;
+    renderizarMotivacaoDestaque(destaqueMotivacao);
     carregarMotivacoes();
 }
 
@@ -609,12 +698,14 @@ async function gerarNovaEscala() {
         return;
     }
 
-    if (!(await mostrarConfirmacao('Gerar nova escala para esta semana?'))) return;
+    const confirmar = await mostrarConfirmacao(
+        'O rodízio é calculado pelo histórico das semanas anteriores (não é sorteio). Se integrantes e cômodos não mudaram, o resultado desta semana será o mesmo.',
+        { titulo: 'Gerar escala desta semana?', confirmarTexto: 'Gerar' }
+    );
+    if (!confirmar) return;
 
     const botao = document.getElementById('btn-gerar-escala');
-    const textoOriginal = botao.textContent;
-    botao.disabled = true;
-    botao.textContent = '⏳ Gerando...';
+    definirCarregando(botao, true, '⏳ Gerando...');
 
     try {
         const response = await fetch(`${API_URL}/escala/gerar`, { method: 'POST' });
@@ -627,28 +718,33 @@ async function gerarNovaEscala() {
         const resultado = await response.json();
 
         const { escala: novaEscala, alerta } = resultado;
+        const anterior = app.escalaAtual;
 
         if (resultado.motivacaoDestaque !== undefined) {
             app.motivacaoDestaque = resultado.motivacaoDestaque;
         }
-        renderizarEscalaTabela(novaEscala);
+        renderizarEscalaTabela(novaEscala, anterior);
         const criticas = Array.isArray(resultado.criticas) ? resultado.criticas : [];
         renderizarCriticasEscala(criticas, 'warning');
 
-        // Mostrar alerta se houver
-        if (alerta) {
-            mostrarNotificacao(alerta, 'warning');
-        } else if (criticas.length > 0) {
+        const mudancas = document.querySelectorAll('#escala-container .escala-card.mudou').length;
+        // `alerta` é informativo (quantas folgas e por quê); vai junto da mensagem principal
+        const detalhe = alerta ? ` ${alerta}` : '';
+
+        if (criticas.length > 0) {
             mostrarNotificacao('Escala gerada com críticas de configuração', 'warning');
+        } else if (anterior.length > 0 && mudancas === 0) {
+            mostrarNotificacao(`Escala refeita: a distribuição continua a mesma, pois nada mudou no histórico, integrantes ou cômodos.${detalhe}`, 'info', 6000);
+        } else if (anterior.length > 0) {
+            mostrarNotificacao(`Escala gerada! ${mudancas === 1 ? '1 pessoa mudou' : `${mudancas} pessoas mudaram`} de tarefa (marcadas como "novo").${detalhe}`, 'success', 6000);
         } else {
-            mostrarNotificacao('Escala gerada com sucesso!', 'success');
+            mostrarNotificacao(`Escala gerada com sucesso!${detalhe}`, 'success', 6000);
         }
     } catch (error) {
         console.error('Erro:', error);
         mostrarNotificacao('Erro ao gerar escala', 'error');
     } finally {
-        botao.disabled = false;
-        botao.textContent = textoOriginal;
+        definirCarregando(botao, false);
     }
 }
 
@@ -662,7 +758,7 @@ async function carregarHistorico() {
         container.innerHTML = '';
 
         if (Object.keys(escalaPorSemana).length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #999;">Nenhum histórico disponível</p>';
+            container.innerHTML = '<div class="card"><p class="empty-state">Nenhum histórico disponível</p></div>';
             return;
         }
 
@@ -673,12 +769,20 @@ async function carregarHistorico() {
             const escalas = escalaPorSemana[semana];
             const primeira = escalas[0];
 
+            const formatarData = (data) => new Date(data).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+            const periodo = primeira.dataFim
+                ? `${formatarData(primeira.dataInicio)} a ${formatarData(primeira.dataFim)}`
+                : formatarData(primeira.dataInicio);
+
             const div = document.createElement('div');
             div.className = 'historico-semana';
             div.innerHTML = `
                 <div class="historico-semana-header">
-                    <h4>Semana ${primeira.semana}/${primeira.ano} - ${new Date(primeira.dataInicio).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</h4>
-                    <button class="btn btn-danger" onclick="deletarHistoricoSemana(${primeira.ano}, ${primeira.semana})">Excluir semana</button>
+                    <div>
+                        <span class="historico-semana-titulo">Semana ${primeira.semana}/${primeira.ano}</span>
+                        <span class="historico-semana-datas">${periodo}</span>
+                    </div>
+                    <button class="icon-btn danger" title="Excluir semana" aria-label="Excluir semana ${primeira.semana}/${primeira.ano}" onclick="deletarHistoricoSemana(${primeira.ano}, ${primeira.semana})"><i class="fa-solid fa-trash"></i></button>
                 </div>
             `;
 
@@ -686,10 +790,12 @@ async function carregarHistorico() {
             itensDiv.className = 'historico-semana-itens';
 
             escalas.forEach(escala => {
+                const comodos = Array.isArray(escala.comodos) ? escala.comodos : [];
+                const isFolga = comodos.includes('FOLGA');
                 const item = document.createElement('div');
-                item.className = 'historico-item';
+                item.className = `historico-item ${isFolga ? 'folga' : ''}`;
                 item.innerHTML = `
-                    <div class="historico-item-comodo">${Array.isArray(escala.comodos) ? escaparHtml(escala.comodos.join(', ')) : 'Sem cômodos'}</div>
+                    <div class="historico-item-comodo">${isFolga ? 'Folga' : (comodos.length > 0 ? escaparHtml(comodos.join(' + ')) : 'Sem cômodos')}</div>
                     <div class="historico-item-integrante">${escaparHtml(escala.integranteNome)}</div>
                 `;
                 itensDiv.appendChild(item);
@@ -789,7 +895,9 @@ async function marcarInfracaoRapido(integranteId) {
         }
 
         mostrarNotificacao('Infração registrada! ❌', 'success');
-        carregarInfracoes();
+        // Recarrega a escala também, para o contador de X do card atualizar na hora
+        await carregarInfracoes();
+        carregarEscalaAtual();
     } catch (error) {
         console.error('Erro:', error);
         mostrarNotificacao('Erro ao registrar', 'error');
@@ -803,10 +911,9 @@ async function carregarInfracoes() {
         app.infracoes = resumo;
 
         const container = document.getElementById('infracoes-resumo-container');
-        container.innerHTML = '';
 
         if (Object.keys(resumo).length === 0) {
-            container.innerHTML = '<p style="text-align: center; color: #999;">Nenhuma infração registrada</p>';
+            container.innerHTML = '<p class="empty-state">Nenhum integrante ativo</p>';
             return;
         }
 
@@ -817,33 +924,38 @@ async function carregarInfracoes() {
             return (resumo[a].integranteNome || '').localeCompare(resumo[b].integranteNome || '', 'pt-BR');
         });
 
+        // Mantém abertos os itens que o usuário tinha expandido antes de recarregar
+        const abertos = new Set([...container.querySelectorAll('.resumo-item[open]')].map(el => el.dataset.id));
+        container.innerHTML = '';
+
         ids.forEach(id => {
             const dados = resumo[id];
-            const div = document.createElement('div');
+            const div = document.createElement('details');
             div.className = 'resumo-item';
+            div.dataset.id = id;
+            div.open = abertos.has(id);
 
-            let html = `
-                <div class="resumo-nome">
-                    ${escaparHtml(dados.integranteNome)}
-                    <span class="resumo-contador">${dados.total}</span>
-                </div>
-                <div class="infracao-lista">
-            `;
-
-            dados.infracoes.forEach(inf => {
-                html += `
-                    <div class="infracao-item">
-                        <div>
-                            <div class="infracao-descricao">• ${escaparHtml(inf.descricao)}</div>
-                            <div class="infracao-data">${new Date(inf.dataRegistro).toLocaleDateString('pt-BR')}</div>
-                        </div>
-                        <button class="btn btn-danger" onclick="deletarInfracao('${inf.id}')">🗑️</button>
+            const itens = dados.infracoes.map(inf => `
+                <div class="infracao-item">
+                    <div>
+                        <div class="infracao-descricao">${escaparHtml(inf.descricao)}</div>
+                        <div class="infracao-data">${new Date(inf.dataRegistro).toLocaleDateString('pt-BR')}</div>
                     </div>
-                `;
-            });
+                    <button class="icon-btn danger" title="Remover infração" aria-label="Remover infração" onclick="deletarInfracao('${inf.id}')"><i class="fa-solid fa-trash"></i></button>
+                </div>
+            `).join('');
 
-            html += '</div>';
-            div.innerHTML = html;
+            div.innerHTML = `
+                <summary>
+                    <span class="avatar">${escaparHtml(iniciais(dados.integranteNome))}</span>
+                    <span class="resumo-nome">${escaparHtml(dados.integranteNome)}</span>
+                    <span class="resumo-contador ${dados.total > 0 ? 'tem-infracao' : ''}">${dados.total} ${dados.total === 1 ? 'infração' : 'infrações'}</span>
+                    <i class="fa-solid fa-chevron-down resumo-chevron"></i>
+                </summary>
+                <div class="infracao-lista">
+                    ${itens || '<p class="infracao-vazia">Nenhuma infração registrada. 🎉</p>'}
+                </div>
+            `;
             container.appendChild(div);
         });
     } catch (error) {
@@ -907,6 +1019,7 @@ async function uploadMotivacao(e) {
             }
             await carregarMotivacoes();
             document.getElementById('form-motivacao').reset();
+            document.getElementById('motivacao-imagem').dispatchEvent(new Event('change'));
             const checkboxDestaque = document.getElementById('motivacao-definir-destaque');
             if (checkboxDestaque) checkboxDestaque.checked = true;
             mostrarNotificacao('Imagem adicionada à galeria! 🎉', 'success');
@@ -933,27 +1046,31 @@ async function carregarMotivacoes() {
         app.motivacoes = Array.isArray(imagens) ? imagens : [];
 
         const destaqueAtual = app.motivacaoDestaque || app.motivacoes[0]?.path || null;
-        renderizarMotivacaoDestaque(destaqueAtual, app.motivacoes);
+        renderizarMotivacaoDestaque(destaqueAtual);
         renderizarGaleriaMotivacao(app.motivacoes, destaqueAtual);
     } catch (error) {
         console.error('Erro:', error);
-        renderizarMotivacaoDestaque(null, []);
+        renderizarMotivacaoDestaque(null);
         renderizarGaleriaMotivacao([], null);
     }
 }
 
-function renderizarMotivacaoDestaque(imagemPath, imagens = []) {
+function renderizarMotivacaoDestaque(imagemPath) {
     const container = document.getElementById('motivacao-destaque-container');
     if (!container) return;
 
+    const stats = app.statsEscala || '';
+    container.closest('.escala-dashboard')?.classList.toggle('sem-imagem', !imagemPath);
+
     if (!imagemPath) {
-        container.innerHTML = '<p class="empty-state">Sem imagem</p>';
+        container.innerHTML = `<div class="escala-stats">${stats}</div>`;
         return;
     }
 
     container.innerHTML = `
         <div class="motivacao-destaque-card">
             <img src="${imagemPath}" alt="Imagem de motivação da semana">
+            <div class="escala-stats overlay">${stats}</div>
         </div>
     `;
 }
@@ -967,18 +1084,21 @@ function renderizarGaleriaMotivacao(imagens, destaqueAtual) {
         return;
     }
 
-    container.innerHTML = imagens.map(imagem => `
-        <figure class="motivacao-admin-item ${imagem.path === destaqueAtual ? 'active' : ''}">
-            <img src="${imagem.path}" alt="Imagem motivacional">
-            <figcaption>
-                <span>${imagem.path === destaqueAtual ? 'Destaque' : 'Galeria'}</span>
-                <div class="motivacao-admin-actions">
-                    <button type="button" class="btn btn-secondary" onclick="definirMotivacaoDestaque('${imagem.path}')">Destacar</button>
-                    <button type="button" class="btn btn-danger" onclick="excluirMotivacao('${imagem.filename}')">Excluir</button>
-                </div>
-            </figcaption>
-        </figure>
-    `).join('');
+    container.innerHTML = imagens.map(imagem => {
+        const ativo = imagem.path === destaqueAtual;
+        return `
+            <figure class="motivacao-admin-item ${ativo ? 'active' : ''}">
+                <img src="${imagem.path}" alt="Imagem motivacional" loading="lazy">
+                <figcaption>
+                    <span class="motivacao-admin-status">${ativo ? '★ Em destaque' : 'Galeria'}</span>
+                    <div class="motivacao-admin-actions">
+                        ${ativo ? '' : `<button type="button" class="btn btn-secondary-color" onclick="definirMotivacaoDestaque('${imagem.path}')">Destacar</button>`}
+                        <button type="button" class="btn btn-ghost" title="Excluir" aria-label="Excluir imagem" onclick="excluirMotivacao('${imagem.filename}')"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </figcaption>
+            </figure>
+        `;
+    }).join('');
 }
 
 async function definirMotivacaoDestaque(imagemPath, mostrarFeedback = true) {
@@ -1038,65 +1158,34 @@ async function excluirMotivacao(filename) {
 }
 
 // ===== NOTIFICAÇÕES =====
-function mostrarNotificacao(mensagem, tipo = 'info') {
+const ICONES_NOTIFICACAO = {
+    success: 'fa-circle-check',
+    error: 'fa-circle-exclamation',
+    warning: 'fa-triangle-exclamation',
+    info: 'fa-circle-info'
+};
+
+function mostrarNotificacao(mensagem, tipo = 'info', duracao = 3000) {
+    const area = document.getElementById('toast-area');
     const notification = document.createElement('div');
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: white;
-        font-weight: 600;
-        z-index: 9999;
-        animation: slideIn 0.3s ease-in;
-        max-width: 300px;
-    `;
+    notification.className = `toast toast-${ICONES_NOTIFICACAO[tipo] ? tipo : 'info'}`;
+    notification.setAttribute('role', tipo === 'error' ? 'alert' : 'status');
 
-    const cores = {
-        'success': '#51cf66',
-        'error': '#ff6b6b',
-        'warning': '#ffd43b',
-        'info': '#6c63ff'
+    const icone = document.createElement('i');
+    icone.className = `fa-solid ${ICONES_NOTIFICACAO[tipo] || ICONES_NOTIFICACAO.info}`;
+    const texto = document.createElement('span');
+    texto.textContent = mensagem;
+    notification.append(icone, texto);
+
+    area.appendChild(notification);
+
+    const fechar = () => {
+        notification.classList.add('saindo');
+        setTimeout(() => notification.remove(), 250);
     };
-
-    notification.style.background = cores[tipo] || cores['info'];
-    notification.textContent = mensagem;
-
-    document.body.appendChild(notification);
-
-    setTimeout(() => {
-        notification.style.animation = 'slideOut 0.3s ease-out';
-        setTimeout(() => notification.remove(), 300);
-    }, 3000);
+    notification.addEventListener('click', fechar);
+    setTimeout(fechar, duracao);
 }
-
-// Adicionar estilos de animação
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    @keyframes slideOut {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-    }
-`;
-document.head.appendChild(style);
 
 // ===== VERSÃO EM EXECUÇÃO =====
 async function carregarVersao() {
@@ -1144,19 +1233,19 @@ async function carregarConfig() {
             const preview = document.getElementById('logo-preview');
             preview.innerHTML = `
                 <img src="${config.logo}" alt="Logo da república">
-                <p style="margin-top: 10px; font-size: 12px; color: #666;">Logo atual</p>
+                <p>Logo atual</p>
             `;
         } else {
-            document.getElementById('logo-preview').innerHTML = '<p style="color: #999; font-size: 14px;">Nenhuma logo definida</p>';
+            document.getElementById('logo-preview').innerHTML = '<p class="empty-state">Nenhuma logo definida</p>';
         }
 
         if (config.background) {
             document.getElementById('background-preview').innerHTML = `
                 <img src="${config.background}" alt="Fundo da aplicação">
-                <p style="margin-top: 10px; font-size: 12px; color: #666;">Fundo atual</p>
+                <p>Fundo atual</p>
             `;
         } else {
-            document.getElementById('background-preview').innerHTML = '<p style="color: #999; font-size: 14px;">Nenhum fundo definido</p>';
+            document.getElementById('background-preview').innerHTML = '<p class="empty-state">Nenhum fundo definido</p>';
         }
         
         // Carregar cores
@@ -1199,6 +1288,7 @@ function aplicarCores(cores) {
     root.style.setProperty('--dark-color', cores.preta || '#000000');
     root.style.setProperty('--danger-color', cores.primaria || '#DC0000');
     root.style.setProperty('--border-color', cores.primaria || '#DC0000');
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', cores.primaria || '#DC0000');
 }
 
 async function uploadLogo(e) {
@@ -1237,7 +1327,7 @@ async function uploadLogo(e) {
             const preview = document.getElementById('logo-preview');
             preview.innerHTML = `
                 <img src="${resultado.logo}" alt="Logo da república">
-                <p style="margin-top: 10px; font-size: 12px; color: #666;">Logo atualizado com sucesso!</p>
+                <p>Logo atualizado com sucesso!</p>
             `;
             
             document.getElementById('form-logo').reset();
@@ -1289,7 +1379,7 @@ async function uploadBackground(e) {
             const preview = document.getElementById('background-preview');
             preview.innerHTML = `
                 <img src="${resultado.background}" alt="Fundo da aplicação">
-                <p style="margin-top: 10px; font-size: 12px; color: #666;">Fundo atualizado com sucesso!</p>
+                <p>Fundo atualizado com sucesso!</p>
             `;
 
             document.getElementById('form-background').reset();
